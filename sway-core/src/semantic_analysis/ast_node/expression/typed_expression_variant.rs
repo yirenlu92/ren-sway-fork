@@ -95,12 +95,18 @@ pub(crate) enum TypedExpressionVariant {
 
 #[derive(Clone, Debug)]
 pub struct TypeCheckedStorageAccess {
-    pub(crate) field_name: Ident,
+    pub(crate) field_name: Option<Ident>,
 }
 
 impl TypeCheckedStorageAccess {
     pub fn new(field_name: Ident) -> Self {
-        Self { field_name }
+        Self {
+            field_name: Some(field_name),
+        }
+    }
+
+    pub fn unit_access() -> Self {
+        Self { field_name: None }
     }
 }
 
@@ -215,7 +221,10 @@ impl TypedExpressionVariant {
                 )
             }
             TypedExpressionVariant::StorageAccess(TypeCheckedStorageAccess { field_name }) => {
-                format!("storage field {} access", field_name)
+                match field_name {
+                    Some(x) => format!("storage field {} access", x),
+                    None => "storage struct access".into(),
+                }
             }
         }
     }

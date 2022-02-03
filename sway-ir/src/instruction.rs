@@ -68,7 +68,10 @@ pub enum Instruction {
     /// Return from a function.
     Ret(Value, Type),
     /// Write a value to a memory pointer.
-    Store { ptr: Pointer, stored_val: Value },
+    Store {
+        ptr: Pointer,
+        stored_val: Value,
+    },
     StateStore,
     StateLoad,
 }
@@ -101,6 +104,7 @@ impl Instruction {
             Instruction::InsertElement { .. } => None,
             Instruction::InsertValue { .. } => None,
             Instruction::Store { .. } => None,
+            Instruction::StateStore | Instruction::StateLoad => todo!("should this be None?"),
         }
     }
 
@@ -180,8 +184,8 @@ impl Instruction {
             Instruction::Store { stored_val, .. } => {
                 replace(stored_val);
             }
-            Instruction::StateStore,
-            Instruction::StateLoad,
+            Instruction::StateStore => todo!("compile to state store"),
+            Instruction::StateLoad => todo!("compile to state load"),
         }
     }
 }

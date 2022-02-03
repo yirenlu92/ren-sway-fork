@@ -143,6 +143,7 @@ pub(crate) fn convert_reassignment_to_asm(
                 offset_in_words += offset_of_this_field;
                 fields = match r#type {
                     TypeInfo::Struct { ref fields, .. } => fields.clone(),
+                    TypeInfo::Storage { ref fields, .. } => fields.clone(),
                     a => {
                         errors.push(CompileError::NotAStruct {
                             name: name.as_str().to_string(),

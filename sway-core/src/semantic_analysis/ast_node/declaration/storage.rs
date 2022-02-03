@@ -1,4 +1,4 @@
-use crate::semantic_analysis::{TypeCheckedStorageAccess, TypedExpression};
+use crate::semantic_analysis::{OwnedTypedStructField, TypeCheckedStorageAccess, TypedExpression};
 use crate::{error::*, type_engine::TypeId, Ident};
 use sway_types::{join_spans, Span};
 
@@ -35,6 +35,22 @@ impl TypedStorageDeclaration {
 
     pub fn span(&self) -> Span {
         self.span.clone()
+    }
+
+    pub(crate) fn fields_as_owned_typed_struct_fields(&self) -> Vec<OwnedTypedStructField> {
+        self.fields
+            .iter()
+            .map(
+                |TypedStorageField {
+                     ref name,
+                     ref r#type,
+                     ..
+                 }| OwnedTypedStructField {
+                    name: name.as_str().to_string(),
+                    r#type: *r#type,
+                },
+            )
+            .collect()
     }
 }
 

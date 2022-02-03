@@ -397,6 +397,16 @@ impl TypedExpression {
                 expression: TypedExpressionVariant::VariableExpression { name: name.clone() },
                 span,
             },
+            Some(TypedDeclaration::StorageDeclaration(decl)) => TypedExpression {
+                return_type: insert_type(TypeInfo::Storage {
+                    fields: decl.fields_as_owned_typed_struct_fields(),
+                }),
+                is_constant: IsConstant::No,
+                expression: TypedExpressionVariant::StorageAccess(
+                    TypeCheckedStorageAccess::unit_access(),
+                ),
+                span,
+            },
             Some(a) => {
                 errors.push(CompileError::NotAVariable {
                     name: name.span().as_str().to_string(),

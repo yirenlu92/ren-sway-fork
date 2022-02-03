@@ -393,6 +393,8 @@ impl<'ir> AsmBuilder<'ir> {
                 Instruction::Phi(_) => (), // Managing the phi value is done in br and cbr compilation.
                 Instruction::Ret(ret_val, ty) => self.compile_ret(ret_val, ty),
                 Instruction::Store { ptr, stored_val } => self.compile_store(ptr, stored_val),
+                Instruction::StateStore { .. } => todo!(),
+                Instruction::StateLoad { .. } => todo!(),
             }
         } else {
             errors.push(CompileError::Internal(

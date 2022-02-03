@@ -160,10 +160,8 @@ fn compile_declarations(
             | TypedDeclaration::Reassignment(_)
             | TypedDeclaration::AbiDeclaration(_)
             | TypedDeclaration::GenericTypeForFunctionScope { .. }
+            | TypedDeclaration::StorageDeclaration(_)
             | TypedDeclaration::ErrorRecovery => (),
-            TypedDeclaration::StorageDeclaration(decl) => {
-                compile_storage_declaration(context, module, decl)?
-            }
         }
     }
     Ok(())
@@ -1143,6 +1141,9 @@ impl FnCompiler {
     }
 
     // ---------------------------------------------------------------------------------------------
+    /// Compiles a storage access into either:
+    /// 1) in the case of an LHS access, an [Instruction::StateStore]
+    /// 2) In the case of an RHS access, an [Instruction::StateLoad]
     fn compile_storage_access(
         &mut self,
         context: &mut Context,
@@ -1463,6 +1464,7 @@ fn convert_resolved_type(context: &mut Context, ast_type: &TypeInfo) -> Result<T
         TypeInfo::Numeric => return Err("'numeric' type found in AST..?".into()),
         TypeInfo::Ref(_) => return Err("ref type found in AST..?".into()),
         TypeInfo::ErrorRecovery => return Err("error recovery type found in AST..?".into()),
+        TypeInfo::Storage { .. } => return Err("storage type found in AST..?".into()),
     })
 }
 
@@ -1608,17 +1610,3 @@ mod tests {
 }
 
 // -------------------------------------------------------------------------------------------------
-
-fn compile_storage_declaration(
-    context: &mut Context,
-    module: Module,
-    decl: TypedStorageDeclaration,
-) -> Result<(), String> {
-    // 1. evaluate all of the initializers, which are expressions
-    // 2. assign them to the storage slots (how?)
-    // ???
-    
-    Instruction::StorageDecl(Vec<(field_name, r#type, Value)>)
-    
-
-}

@@ -96,15 +96,10 @@ impl NamespaceWrapper for NamespaceRef {
         &self,
         field: Ident,
     ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
-        read_module(move |ns| {
-            ns.apply_storage_access(field.clone())
-        }, *self)
+        read_module(move |ns| ns.apply_storage_access(field.clone()), *self)
     }
     fn set_storage_declaration(&self, decl: TypedStorageDeclaration) -> CompileResult<()> {
-        write_module(|
-        ns| {
-            ns.set_storage_declaration(decl)
-        }, *self)
+        write_module(|ns| ns.set_storage_declaration(decl), *self)
     }
     fn insert_module_ref(&self, module_name: String, ix: NamespaceRef) {
         write_module(|ns| ns.insert_module(module_name, ix), *self)
@@ -114,9 +109,9 @@ impl NamespaceWrapper for NamespaceRef {
         let mut errors = vec![];
         let mut ident_iter = subfield_exp.iter().peekable();
         let first_ident = ident_iter.next().unwrap();
-        let symbol = match read_module(|m| m.symbols.get(first_ident).cloned(), *self) {
-            Some(s) => s,
-            None => {
+        let symbol = match self.get_symbol(first_ident) {
+            CompileResult { value: Some(s), .. } => s,
+            CompileResult { value: None, .. } => {
                 errors.push(CompileError::UnknownVariable {
                     var_name: first_ident.as_str().to_string(),
                     span: first_ident.span().clone(),
@@ -211,6 +206,7 @@ impl NamespaceWrapper for NamespaceRef {
         let ty = crate::type_engine::look_up_type_id(ty);
         match ty {
             TypeInfo::Struct { name, fields } => ok((fields.to_vec(), name), vec![], vec![]),
+            TypeInfo::Storage { fields } => ok((fields.to_vec(), "storage".into()), vec![], vec![]),
             // If we hit `ErrorRecovery` then the source of that type should have populated
             // the error buffer elsewhere
             TypeInfo::ErrorRecovery => err(vec![], vec![]),
@@ -272,6 +268,18 @@ impl NamespaceWrapper for NamespaceRef {
             warnings,
             errors
         );
+        if name.as_str().trim() == "storage" && path.is_empty() {
+            match read_module(|ns| ns.declared_storage.clone(), *self) {
+                Some(storage) => {
+                    return ok(
+                        TypedDeclaration::StorageDeclaration(storage),
+                        warnings,
+                        errors,
+                    )
+                }
+                None => todo!("no storage declared error"),
+            }
+        }
         match read_module(|module| module.symbols.get(name).cloned(), module) {
             Some(decl) => ok(decl, warnings, errors),
             None => {
@@ -464,7 +472,9 @@ impl NamespaceWrapper for NamespaceRef {
             errors
         );
         let mut impls_to_insert = vec![];
-
+        if item.as_str().trim() == "storage" {
+            todo!("find storage decl");
+        }
         match read_module(|namespace| namespace.symbols.get(item).cloned(), namespace) {
             Some(decl) => {
                 if decl.visibility() != Visibility::Public {

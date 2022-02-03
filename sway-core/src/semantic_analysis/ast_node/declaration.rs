@@ -78,7 +78,7 @@ impl TypedDeclaration {
             AbiDeclaration(..) => "abi",
             GenericTypeForFunctionScope { .. } => "generic type parameter",
             ErrorRecovery => "error",
-            StorageDeclaration(_) => "storage",
+            StorageDeclaration(_) => "contract storage declaration",
         }
     }
     pub(crate) fn return_type(&self) -> CompileResult<TypeId> {
@@ -108,6 +108,9 @@ impl TypedDeclaration {
                         .collect(),
                 }),
                 TypedDeclaration::Reassignment(TypedReassignment { rhs, .. }) => rhs.return_type,
+                TypedDeclaration::StorageDeclaration(decl) => insert_type(TypeInfo::Storage {
+                    fields: decl.fields_as_owned_typed_struct_fields(),
+                }),
                 TypedDeclaration::GenericTypeForFunctionScope { name } => {
                     insert_type(TypeInfo::UnknownGeneric { name: name.clone() })
                 }

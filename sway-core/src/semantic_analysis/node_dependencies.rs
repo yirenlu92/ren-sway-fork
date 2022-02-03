@@ -612,6 +612,7 @@ fn type_info_name(type_info: &TypeInfo) -> String {
         TypeInfo::Struct { .. } => "struct",
         TypeInfo::Enum { .. } => "enum",
         TypeInfo::Array(..) => "array",
+        TypeInfo::Storage { .. } => "contract storage",
     }
     .to_string()
 }

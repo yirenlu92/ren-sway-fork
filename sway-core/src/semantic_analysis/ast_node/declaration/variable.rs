@@ -1,9 +1,7 @@
-use crate::semantic_analysis::TypedExpression;
-use crate::type_engine::*;
-use crate::Ident;
-use crate::Visibility;
-use crate::{type_engine::TypeId, TypeParameter};
-
+use crate::{
+    error::*, semantic_analysis::TypedExpression, type_engine::TypeId, type_engine::*, Ident,
+    TypeParameter, Visibility,
+};
 #[derive(Clone, Debug)]
 pub enum VariableMutability {
     // private + mutable
@@ -70,4 +68,20 @@ impl TypedVariableDeclaration {
 
         self.body.copy_types(type_mapping)
     }
+}
+
+// there are probably more names we should check here, this is the only one that will result in an
+// actual issue right now, though
+const INVALID_NAMES: &[&'static str] = &["storage"];
+pub fn check_if_name_is_invalid(name: &Ident) -> CompileResult<()> {
+    INVALID_NAMES
+        .iter()
+        .find_map(|x| {
+            if *x == name.as_str() {
+                todo!("invalid name err")
+            } else {
+                None
+            }
+        })
+        .unwrap_or(ok((), vec![], vec![]))
 }

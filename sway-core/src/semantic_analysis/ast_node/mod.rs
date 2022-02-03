@@ -23,8 +23,8 @@ pub mod declaration;
 
 use declaration::TypedTraitFn;
 pub(crate) use declaration::{
-    OwnedTypedEnumVariant, OwnedTypedStructField, TypedReassignment, TypedStorageDeclaration,
-    TypedTraitDeclaration, TypedVariableDeclaration, VariableMutability
+    check_if_name_is_invalid, OwnedTypedEnumVariant, OwnedTypedStructField, TypedReassignment,
+    TypedStorageDeclaration, TypedTraitDeclaration, TypedVariableDeclaration, VariableMutability,
 };
 pub use declaration::{
     TypedAbiDeclaration, TypedConstantDeclaration, TypedDeclaration, TypedEnumDeclaration,
@@ -222,6 +222,8 @@ impl TypedAstNode {
                             body,
                             is_mutable,
                         }) => {
+                            check_if_name_is_invalid(&name).ok(&mut warnings, &mut errors);
+
                             let type_ascription = namespace
                                 .resolve_type_with_self(type_ascription, self_type)
                                 .unwrap_or_else(|_| {
@@ -627,6 +629,10 @@ impl TypedAstNode {
                             }
 
                             let decl = TypedStorageDeclaration::new(fields_buf, span);
+                            // insert the storage declaration into the symbols
+                            // if there already was one, return an error that duplicate storage
+
+                            // declarations are not allowed
                             check!(
                                 namespace.set_storage_declaration(decl.clone()),
                                 return err(warnings, errors),

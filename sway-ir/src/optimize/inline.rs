@@ -277,6 +277,9 @@ fn inline_instruction(
             // back up to this block.  And we don't need to add a `phi` instruction because an
             // empty one is added upon block creation; we can return that instead.
             Instruction::Phi(_) => new_block.get_phi(context),
+            Instruction::StateStore | Instruction::StateLoad => {
+                todo!("handle inlining contract storage")
+            }
         };
         value_map.insert(*instruction, new_ins);
     }

@@ -108,6 +108,8 @@ impl Context {
                 Instruction::Phi(pairs) => self.verify_phi(&pairs[..])?,
                 Instruction::Ret(val, ty) => self.verify_ret(function, val, ty)?,
                 Instruction::Store { ptr, stored_val } => self.verify_store(ptr, stored_val)?,
+                Instruction::StateStore => todo!("verify state store"),
+                Instruction::StateLoad => todo!("verify state store"),
             }
         } else {
             unreachable!("Verify instruction is not an instruction.");
