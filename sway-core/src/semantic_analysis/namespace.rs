@@ -3,14 +3,13 @@ use super::ast_node::{
     TypedStructField,
 };
 use crate::{
-    TypedFunctionDeclaration,
     error::*,
     parse_tree::Visibility,
     semantic_analysis::{
         ast_node::TypedStorageDeclaration, TypeCheckedStorageAccess, TypedExpression,
     },
     type_engine::*,
-    CallPath, CompileResult, Ident, TypeInfo, TypedDeclaration, 
+    CallPath, CompileResult, Ident, TypeInfo, TypedDeclaration, TypedFunctionDeclaration,
 };
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use sway_types::span::{join_spans, Span};
@@ -41,12 +40,21 @@ pub struct Namespace {
 }
 
 impl Namespace {
-    pub fn apply_storage_access(
+    pub fn apply_storage_load(
         &self,
         field: Ident,
     ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
         match self.declared_storage {
-            Some(ref storage) => storage.apply_storage_access(field),
+            Some(ref storage) => storage.apply_storage_load(field),
+            None => todo!("Attempted access of storage where no declaration was available err"),
+        }
+    }
+    pub fn apply_storage_store(
+        &self,
+        field: Ident,
+    ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
+        match self.declared_storage {
+            Some(ref storage) => storage.apply_storage_store(field),
             None => todo!("Attempted access of storage where no declaration was available err"),
         }
     }
@@ -94,11 +102,6 @@ impl Namespace {
         self.symbols.insert(name, item);
         ok((), warnings, errors)
     }
-
-
-
-
-
 
     pub(crate) fn insert_trait_implementation(
         &mut self,

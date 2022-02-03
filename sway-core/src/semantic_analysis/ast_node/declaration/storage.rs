@@ -14,7 +14,7 @@ impl TypedStorageDeclaration {
     }
     /// Given a field, find its type information in the declaration and return it. If the field has not
     /// been declared as a part of storage, return an error.
-    pub fn apply_storage_access(
+    pub fn apply_storage_load(
         &self,
         field: Ident,
     ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
@@ -24,7 +24,27 @@ impl TypedStorageDeclaration {
             .find(|TypedStorageField { name, .. }| *name == field)
         {
             return ok(
-                (TypeCheckedStorageAccess::new(name.clone()), *r#type),
+                (TypeCheckedStorageAccess::new_load(name.clone()), *r#type),
+                vec![],
+                vec![],
+            );
+        } else {
+            todo!("storage field not found err")
+        }
+    }
+    /// Given a field, find its type information in the declaration and return it. If the field has not
+    /// been declared as a part of storage, return an error.
+    pub fn apply_storage_store(
+        &self,
+        field: Ident,
+    ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
+        if let Some(TypedStorageField { r#type, name, .. }) = self
+            .fields
+            .iter()
+            .find(|TypedStorageField { name, .. }| *name == field)
+        {
+            return ok(
+                (TypeCheckedStorageAccess::new_store(name.clone()), *r#type),
                 vec![],
                 vec![],
             );

@@ -93,20 +93,40 @@ pub(crate) enum TypedExpressionVariant {
     StorageAccess(TypeCheckedStorageAccess),
 }
 
+/// Whether a storage access is _writing_, i.e. _storing_; or _reading_, i.e. _loading_.
+#[derive(Clone, Debug)]
+pub enum StoreOrLoad {
+    Store,
+    Load,
+}
+
 #[derive(Clone, Debug)]
 pub struct TypeCheckedStorageAccess {
     pub(crate) field_name: Option<Ident>,
+    pub(crate) store_or_load: StoreOrLoad,
 }
 
 impl TypeCheckedStorageAccess {
-    pub fn new(field_name: Ident) -> Self {
+    pub fn new_store(field_name: Ident) -> Self {
         Self {
             field_name: Some(field_name),
+            store_or_load: StoreOrLoad::Store,
+        }
+    }
+    pub fn new_load(field_name: Ident) -> Self {
+        Self {
+            field_name: Some(field_name),
+            store_or_load: StoreOrLoad::Load,
         }
     }
 
     pub fn unit_access() -> Self {
-        Self { field_name: None }
+        Self {
+            field_name: None,
+            // this doesn't actually matter since `unit_access` does nothing,
+            // so we go with `Load` as it implies less overhead
+            store_or_load: StoreOrLoad::Load,
+        }
     }
 }
 
@@ -220,12 +240,12 @@ impl TypedExpressionVariant {
                     tag
                 )
             }
-            TypedExpressionVariant::StorageAccess(TypeCheckedStorageAccess { field_name }) => {
-                match field_name {
-                    Some(x) => format!("storage field {} access", x),
-                    None => "storage struct access".into(),
-                }
-            }
+            TypedExpressionVariant::StorageAccess(TypeCheckedStorageAccess {
+                field_name, ..
+            }) => match field_name {
+                Some(x) => format!("storage field {} access", x),
+                None => "storage struct access".into(),
+            },
         }
     }
     /// Makes a fresh copy of all type ids in this expression. Used when monomorphizing.

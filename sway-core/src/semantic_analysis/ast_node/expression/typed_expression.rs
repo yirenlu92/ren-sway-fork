@@ -279,7 +279,7 @@ impl TypedExpression {
                     opts,
                 )
             }
-            Expression::StorageAccess { field_name, .. } => Self::type_check_storage_access(
+            Expression::StorageAccess { field_name, .. } => Self::type_check_storage_load(
                 TypeCheckArguments {
                     checkee: field_name,
                     namespace,
@@ -1156,7 +1156,7 @@ impl TypedExpression {
     /// Look up the current global storage state that has been created by storage declarations.
     /// If there isn't any storage, then this is an error. If there is storage, find the corresponding
     /// field that has been specified and return that value.
-    fn type_check_storage_access(
+    fn type_check_storage_load(
         arguments: TypeCheckArguments<'_, Ident>,
         span: &Span,
     ) -> CompileResult<TypedExpression> {
@@ -1166,7 +1166,7 @@ impl TypedExpression {
         // could be a good time to do that refactor. alternatively, the storage declaration can go in
         // the namespace and we could pull it from there.
         let (storage_access, return_type) = check!(
-            arguments.namespace.apply_storage_access(arguments.checkee),
+            arguments.namespace.apply_storage_load(arguments.checkee),
             return err(warnings, errors),
             warnings,
             errors

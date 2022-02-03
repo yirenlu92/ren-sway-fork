@@ -1149,6 +1149,7 @@ impl FnCompiler {
         context: &mut Context,
         storage_access: TypeCheckedStorageAccess,
     ) -> Result<Value, String> {
+        let mode = storage_access.store_or_load;
         todo!()
     }
 
