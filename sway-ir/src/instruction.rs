@@ -19,6 +19,49 @@ use crate::{
 };
 use sway_types::ident::Ident;
 
+/// Represents the position in a storage statement that a field was declared.
+/// For example, in the following storage declaration, `foo` has [StateIndex] 0 and `bar` has
+/// [StateIndex] 1.
+/// ```
+/// storage {
+///   foo: u32 = 0,
+///   bar: u32 = 0,
+/// }
+/// ```
+/// The actual [StorageSlot] is calculated as the sha256 hash of the domain separator
+/// [sway_utils::constants::STORAGE_DOMAIN_SEPARATOR] concatenated with the index.
+///
+/// Here, `foo`'s [StorageSlot] is `sha256(format!("{}{}", STORAGE_DOMAIN_SEPARATOR, 0))` or
+/// `F383B0CE51358BE57DAA3B725FE44ACDB2D880604E367199080B4379C41BB6ED`.
+///
+/// `bar`'s [StorageSlot] is `sha256(format!("{}{}", STORAGE_DOMAIN_SEPARATOR, 1))` or
+/// `DE9090CB50E71C2588C773487D1DA7066D0C719849A7E58DC8B6397A25C567C0`.
+#[derive(Clone, Debug)]
+pub struct StateIndex(usize);
+
+/// The actual state slot that will be used to index the FuelVM's contract state. See [StateIndex]
+/// for more details on how this is calculated.
+#[derive(Clone, Debug)]
+pub struct StateSlot([u8; 32]);
+
+impl StateIndex {
+    fn new(raw: usize) -> Self {
+        StateIndex(raw)
+    }
+
+    fn with_domain_separator(&self) -> String {
+        format!(
+            "{}{}",
+            sway_utils::constants::STORAGE_DOMAIN_SEPARATOR,
+            self.0
+        )
+    }
+
+    fn to_slot_value(&self) -> StateSlot {
+        todo!("sha256 this -- verify examples in docs line up")
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum Instruction {
     /// An opaque list of ASM instructions passed directly to codegen.
@@ -72,8 +115,12 @@ pub enum Instruction {
         ptr: Pointer,
         stored_val: Value,
     },
-    StateStore,
-    StateLoad,
+    StateStore {
+        slot: StateIndex,
+    },
+    StateLoad {
+        slot: StateIndex,
+    },
 }
 
 impl Instruction {
@@ -104,7 +151,9 @@ impl Instruction {
             Instruction::InsertElement { .. } => None,
             Instruction::InsertValue { .. } => None,
             Instruction::Store { .. } => None,
-            Instruction::StateStore | Instruction::StateLoad => todo!("should this be None?"),
+            Instruction::StateStore { .. } | Instruction::StateLoad { .. } => {
+                todo!("should this be None?")
+            }
         }
     }
 
@@ -184,8 +233,8 @@ impl Instruction {
             Instruction::Store { stored_val, .. } => {
                 replace(stored_val);
             }
-            Instruction::StateStore => todo!("compile to state store"),
-            Instruction::StateLoad => todo!("compile to state load"),
+            Instruction::StateStore { .. } => todo!("compile to state store"),
+            Instruction::StateLoad { .. } => todo!("compile to state load"),
         }
     }
 }

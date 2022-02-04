@@ -1149,7 +1149,39 @@ impl FnCompiler {
         context: &mut Context,
         storage_access: TypeCheckedStorageAccess,
     ) -> Result<Value, String> {
-        let mode = storage_access.store_or_load;
+        let mode = storage_access.mode();
+        let field_name = storage_access.field_name();
+        match (mode, field_name) {
+            // in the case of a storage access that doesn't actually touch a field,
+            // we don't generate any code.
+            (_, None) => Ok(Value::new_constant(
+                context,
+                Constant {
+                    ty: Type::Unit,
+                    value: ConstantValue::Unit,
+                },
+            )),
+            (StoreOrLoad::Store, Some(field_name)) => {
+                self.compile_storage_store(context, field_name)
+            }
+            (StoreOrLoad::Load, Some(field_name)) => self.compile_storage_load(context, field_name),
+        }
+    }
+
+    fn compile_storage_store(
+        &mut self,
+        context: &mut Context,
+        field_name: &Ident,
+    ) -> Result<Value, String> {
+        //        Value::new_instruction(context, Instruction::
+        todo!()
+    }
+
+    fn compile_storage_load(
+        &mut self,
+        context: &mut Context,
+        storage_access: &Ident,
+    ) -> Result<Value, String> {
         todo!()
     }
 

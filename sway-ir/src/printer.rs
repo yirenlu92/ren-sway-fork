@@ -424,8 +424,8 @@ fn instruction_to_doc<'a>(
                     ptr.as_string(context, name),
                 )))
             }
-            Instruction::StateStore => todo!("handle state storing"),
-            Instruction::StateLoad => todo!("handle state loading"),
+            Instruction::StateStore { .. } => todo!("handle state storing"),
+            Instruction::StateLoad { .. } => todo!("handle state loading"),
         },
         _ => unreachable!("Unexpected non instruction for block contents."),
     }

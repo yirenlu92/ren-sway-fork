@@ -2841,6 +2841,7 @@ dependencies = [
  "peg",
  "prettydiff 0.5.1",
  "sway-types",
+ "sway-utils",
 ]
 
 [[package]]

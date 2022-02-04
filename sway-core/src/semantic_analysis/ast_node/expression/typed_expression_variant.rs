@@ -94,7 +94,7 @@ pub(crate) enum TypedExpressionVariant {
 }
 
 /// Whether a storage access is _writing_, i.e. _storing_; or _reading_, i.e. _loading_.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Copy)]
 pub enum StoreOrLoad {
     Store,
     Load,
@@ -107,6 +107,12 @@ pub struct TypeCheckedStorageAccess {
 }
 
 impl TypeCheckedStorageAccess {
+    pub fn mode(&self) -> StoreOrLoad {
+        self.store_or_load
+    }
+    pub fn field_name(&self) -> Option<&Ident> {
+        self.field_name.as_ref()
+    }
     pub fn new_store(field_name: Ident) -> Self {
         Self {
             field_name: Some(field_name),

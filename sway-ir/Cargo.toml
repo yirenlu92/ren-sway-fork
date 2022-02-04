@@ -17,3 +17,4 @@ peg = "0.7"
 pest = { version = "3.0.4", package = "fuel-pest" }
 prettydiff = "0.5"
 sway-types = { version = "0.3.1", path = "../sway-types" }
+sway-utils = { version = "0.3.1", path = "../sway-utils" }
