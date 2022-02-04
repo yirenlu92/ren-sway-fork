@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::{parse_tree::AsmOp, semantic_analysis::ast_node::*, Ident};
+use sway_types::state::StateIndex;
 
 #[derive(Clone, Debug)]
 pub(crate) struct ContractCallMetadata {
@@ -102,7 +103,7 @@ pub enum StoreOrLoad {
 
 #[derive(Clone, Debug)]
 pub struct TypeCheckedStorageAccess {
-    pub(crate) field_name: Option<Ident>,
+    pub(crate) field_ix_and_name: Option<(StateIndex, Ident)>,
     pub(crate) store_or_load: StoreOrLoad,
 }
 
@@ -110,25 +111,28 @@ impl TypeCheckedStorageAccess {
     pub fn mode(&self) -> StoreOrLoad {
         self.store_or_load
     }
-    pub fn field_name(&self) -> Option<&Ident> {
-        self.field_name.as_ref()
+    pub fn field_ix(&self) -> Option<&StateIndex> {
+        self.field_ix_and_name.as_ref().map(|(x, _)| x)
     }
-    pub fn new_store(field_name: Ident) -> Self {
+    pub fn field_name(&self) -> Option<&Ident> {
+        self.field_ix_and_name.as_ref().map(|(_, x)| x)
+    }
+    pub fn new_store(field: StateIndex, name: Ident) -> Self {
         Self {
-            field_name: Some(field_name),
+            field_ix_and_name: Some((field, name)),
             store_or_load: StoreOrLoad::Store,
         }
     }
-    pub fn new_load(field_name: Ident) -> Self {
+    pub fn new_load(field: StateIndex, name: Ident) -> Self {
         Self {
-            field_name: Some(field_name),
+            field_ix_and_name: Some((field, name)),
             store_or_load: StoreOrLoad::Load,
         }
     }
 
     pub fn unit_access() -> Self {
         Self {
-            field_name: None,
+            field_ix_and_name: None,
             // this doesn't actually matter since `unit_access` does nothing,
             // so we go with `Load` as it implies less overhead
             store_or_load: StoreOrLoad::Load,
@@ -246,10 +250,8 @@ impl TypedExpressionVariant {
                     tag
                 )
             }
-            TypedExpressionVariant::StorageAccess(TypeCheckedStorageAccess {
-                field_name, ..
-            }) => match field_name {
-                Some(x) => format!("storage field {} access", x),
+            TypedExpressionVariant::StorageAccess(access) => match access.field_name() {
+                Some(name) => format!("storage field {} access", name.as_str()),
                 None => "storage struct access".into(),
             },
         }

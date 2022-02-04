@@ -962,18 +962,19 @@ fn connect_expression(
             )?;
             Ok(prefix_idx)
         }
-        StorageAccess(TypeCheckedStorageAccess {
-            field_name: Some(field_name),
-            ..
-        }) => {
-            let storage_node = graph.namespace.storage.get(field_name).cloned();
-            let this_ix = graph.add_node(format!("storage field access: {}", field_name).into());
-            for leaf in leaves {
-                storage_node.map(|x| graph.add_edge(*leaf, x, "".into()));
-                graph.add_edge(*leaf, this_ix, "".into());
+        StorageAccess(field) => match field.field_name() {
+            Some(field_name) => {
+                let storage_node = graph.namespace.storage.get(field_name).cloned();
+                let this_ix =
+                    graph.add_node(format!("storage field access: {}", field_name.as_str()).into());
+                for leaf in leaves {
+                    storage_node.map(|x| graph.add_edge(*leaf, x, "".into()));
+                    graph.add_edge(*leaf, this_ix, "".into());
+                }
+                Ok(vec![this_ix])
             }
-            Ok(vec![this_ix])
-        }
+            None => Ok(leaves.to_vec()),
+        },
         a => {
             println!("Unimplemented: {:?}", a);
             Err(CompileError::Unimplemented(

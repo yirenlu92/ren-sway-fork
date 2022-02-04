@@ -1,6 +1,6 @@
 use crate::semantic_analysis::{OwnedTypedStructField, TypeCheckedStorageAccess, TypedExpression};
 use crate::{error::*, type_engine::TypeId, Ident};
-use sway_types::{join_spans, Span};
+use sway_types::{join_spans, state::StateIndex, Span};
 
 #[derive(Clone, Debug)]
 pub struct TypedStorageDeclaration {
@@ -18,13 +18,12 @@ impl TypedStorageDeclaration {
         &self,
         field: Ident,
     ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
-        if let Some(TypedStorageField { r#type, name, .. }) = self
-            .fields
-            .iter()
-            .find(|TypedStorageField { name, .. }| *name == field)
-        {
+        if let Some((ix, TypedStorageField { r#type, name, .. })) = self.find_field(&field) {
             return ok(
-                (TypeCheckedStorageAccess::new_load(name.clone()), *r#type),
+                (
+                    TypeCheckedStorageAccess::new_load(ix, name.clone()),
+                    *r#type,
+                ),
                 vec![],
                 vec![],
             );
@@ -32,19 +31,26 @@ impl TypedStorageDeclaration {
             todo!("storage field not found err")
         }
     }
+
+    fn find_field(&self, field: &Ident) -> Option<(StateIndex, &TypedStorageField)> {
+        self.fields
+            .iter()
+            .enumerate()
+            .find(|(ix, TypedStorageField { name, .. })| name == field)
+            .map(|(ix, field)| (StateIndex::new(ix), field))
+    }
     /// Given a field, find its type information in the declaration and return it. If the field has not
     /// been declared as a part of storage, return an error.
     pub fn apply_storage_store(
         &self,
         field: Ident,
     ) -> CompileResult<(TypeCheckedStorageAccess, TypeId)> {
-        if let Some(TypedStorageField { r#type, name, .. }) = self
-            .fields
-            .iter()
-            .find(|TypedStorageField { name, .. }| *name == field)
-        {
+        if let Some((ix, TypedStorageField { r#type, name, .. })) = self.find_field(&field) {
             return ok(
-                (TypeCheckedStorageAccess::new_store(name.clone()), *r#type),
+                (
+                    TypeCheckedStorageAccess::new_store(ix, name.clone()),
+                    *r#type,
+                ),
                 vec![],
                 vec![],
             );

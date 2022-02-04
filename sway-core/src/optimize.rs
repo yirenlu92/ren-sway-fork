@@ -7,7 +7,7 @@ use crate::{
     type_engine::*,
 };
 
-use sway_types::{ident::Ident, span::Span};
+use sway_types::{ident::Ident, span::Span, state::StateIndex};
 
 use sway_ir::*;
 
@@ -1150,8 +1150,8 @@ impl FnCompiler {
         storage_access: TypeCheckedStorageAccess,
     ) -> Result<Value, String> {
         let mode = storage_access.mode();
-        let field_name = storage_access.field_name();
-        match (mode, field_name) {
+        let field = storage_access.field_ix();
+        match (mode, field) {
             // in the case of a storage access that doesn't actually touch a field,
             // we don't generate any code.
             (_, None) => Ok(Value::new_constant(
@@ -1161,17 +1161,15 @@ impl FnCompiler {
                     value: ConstantValue::Unit,
                 },
             )),
-            (StoreOrLoad::Store, Some(field_name)) => {
-                self.compile_storage_store(context, field_name)
-            }
-            (StoreOrLoad::Load, Some(field_name)) => self.compile_storage_load(context, field_name),
+            (StoreOrLoad::Store, Some(field)) => self.compile_storage_store(context, *field),
+            (StoreOrLoad::Load, Some(field)) => self.compile_storage_load(context, *field),
         }
     }
 
     fn compile_storage_store(
         &mut self,
         context: &mut Context,
-        field_name: &Ident,
+        storage_ix: StateIndex,
     ) -> Result<Value, String> {
         //        Value::new_instruction(context, Instruction::
         todo!()
@@ -1180,8 +1178,9 @@ impl FnCompiler {
     fn compile_storage_load(
         &mut self,
         context: &mut Context,
-        storage_access: &Ident,
+        storage_ix: StateIndex,
     ) -> Result<Value, String> {
+        //        Value::new_instruction(context, Instruction::StateLoad {
         todo!()
     }
 

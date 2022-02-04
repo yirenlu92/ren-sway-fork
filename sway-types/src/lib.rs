@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use std::{io, iter, slice};
 
 pub mod ident;
+pub mod state;
 pub use ident::*;
 
 pub mod span;
