@@ -119,20 +119,19 @@ impl Instruction {
 
     /// Some [`Instruction`]s may have struct arguments.  Return it if so for this instruction.
     pub fn get_aggregate(&self, context: &Context) -> Option<Aggregate> {
+        use Instruction::*;
         match self {
-            Instruction::GetPointer(ptr) | Instruction::Load(ptr) => match ptr.get_type(context) {
+            GetPointer(ptr) | Load(ptr) => match ptr.get_type(context) {
                 Type::Array(aggregate) => Some(*aggregate),
                 Type::Struct(aggregate) => Some(*aggregate),
                 _otherwise => None,
             },
-            Instruction::ExtractElement { ty, .. } => {
-                ty.get_elem_type(context).and_then(|ty| match ty {
-                    Type::Array(nested_aggregate) => Some(nested_aggregate),
-                    Type::Struct(nested_aggregate) => Some(nested_aggregate),
-                    _otherwise => None,
-                })
-            }
-            Instruction::ExtractValue { ty, indices, .. } => {
+            ExtractElement { ty, .. } => ty.get_elem_type(context).and_then(|ty| match ty {
+                Type::Array(nested_aggregate) => Some(nested_aggregate),
+                Type::Struct(nested_aggregate) => Some(nested_aggregate),
+                _otherwise => None,
+            }),
+            ExtractValue { ty, indices, .. } => {
                 // This array is a field in a struct or element in an array.
                 ty.get_field_type(context, indices).and_then(|ty| match ty {
                     Type::Array(nested_aggregate) => Some(nested_aggregate),
@@ -140,9 +139,18 @@ impl Instruction {
                     _otherwise => None,
                 })
             }
-
+            StateStore { slot } => todo!("get this state type out of the context?"),
+            StateLoad { slot } => todo!("get this state type out of the context?"),
             // Unknown aggregate instruction.  Adding these as we come across them...
-            _otherwise => None,
+            AsmBlock(_, _)
+            | Branch(_)
+            | Call(_, _)
+            | ConditionalBranch { .. }
+            | InsertElement { .. }
+            | InsertValue { .. }
+            | Phi(_)
+            | Ret(_, _)
+            | Store { .. } => None,
         }
     }
 

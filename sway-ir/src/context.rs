@@ -21,6 +21,8 @@ use crate::{
     value::ValueContent,
 };
 
+use sway_types::state::StateIndex;
+
 /// The main IR context handle.
 ///
 /// Every module, function, block and value is stored here.  Some aggregate metadata is also
@@ -35,12 +37,18 @@ pub struct Context {
     pub aggregates: Arena<AggregateContent>,
     pub abi_instances: Arena<AbiInstanceContent>,
     pub asm_blocks: Arena<AsmBlockContent>,
-
     pub(super) aggregate_names: HashMap<String, Aggregate>,
     aggregate_symbols: HashMap<Aggregate, HashMap<String, u64>>,
 
     next_unique_sym_tag: u64,
+    //    storage_slots: Vec<StorageSlot>,
 }
+
+/*
+pub struct StorageSlot {
+    field_name: Ident,
+    slot: StateIndex,
+}*/
 
 impl Context {
     /// Return an interator for every module in this context.

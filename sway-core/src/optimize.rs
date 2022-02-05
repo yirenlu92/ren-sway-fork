@@ -1180,8 +1180,10 @@ impl FnCompiler {
         context: &mut Context,
         storage_ix: StateIndex,
     ) -> Result<Value, String> {
-        //        Value::new_instruction(context, Instruction::StateLoad {
-        todo!()
+        Ok(Value::new_instruction(
+            context,
+            Instruction::StateLoad { slot: storage_ix },
+        ))
     }
 
     fn compile_struct_field_expr(
