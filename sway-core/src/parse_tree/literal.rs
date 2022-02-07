@@ -27,6 +27,12 @@ pub enum Literal {
     B256([u8; 32]),
 }
 
+impl From<fuel_tx::Bytes32> for Literal {
+    fn from(o: fuel_tx::Bytes32) -> Self {
+        Literal::B256(*o)
+    }
+}
+
 impl Literal {
     #[allow(dead_code)]
     pub(crate) fn as_type(&self) -> ResolvedType {

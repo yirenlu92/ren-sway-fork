@@ -945,8 +945,8 @@ dependencies = [
  "flate2",
  "fuel-asm",
  "fuel-gql-client",
- "fuel-tx",
- "fuel-vm",
+ "fuel-tx 0.2.1",
+ "fuel-vm 0.2.0",
  "futures",
  "hex",
  "prettydiff 0.4.0",
@@ -1000,9 +1000,9 @@ dependencies = [
  "cynic",
  "derive_more",
  "fuel-storage",
- "fuel-tx",
+ "fuel-tx 0.2.1",
  "fuel-types",
- "fuel-vm",
+ "fuel-vm 0.2.0",
  "futures",
  "hex",
  "schemafy_lib",
@@ -1093,6 +1093,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "fuel-tx"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f2f7b870e050bab2e9a2178ed6ac627a56ce7ea4fb036cecdacbcc2854212ef"
+dependencies = [
+ "fuel-asm",
+ "fuel-types",
+ "itertools",
+ "sha2",
+]
+
+[[package]]
 name = "fuel-types"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1111,11 +1123,28 @@ dependencies = [
  "fuel-asm",
  "fuel-merkle",
  "fuel-storage",
- "fuel-tx",
+ "fuel-tx 0.2.1",
  "fuel-types",
  "itertools",
  "secp256k1",
  "serde",
+ "sha3",
+ "tracing",
+]
+
+[[package]]
+name = "fuel-vm"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49842bf8fafcef12f61711367ba233501f2ae4304eb973746b485439ad3ce517"
+dependencies = [
+ "fuel-asm",
+ "fuel-merkle",
+ "fuel-storage",
+ "fuel-tx 0.5.0",
+ "fuel-types",
+ "itertools",
+ "secp256k1",
  "sha3",
  "tracing",
 ]
@@ -2809,7 +2838,8 @@ dependencies = [
  "fuel-asm",
  "fuel-pest",
  "fuel-pest_derive",
- "fuel-vm",
+ "fuel-tx 0.5.0",
+ "fuel-vm 0.4.0",
  "generational-arena",
  "hex",
  "lazy_static",
@@ -2820,6 +2850,7 @@ dependencies = [
  "structopt 0.3.26",
  "sway-ir",
  "sway-types",
+ "sway-utils",
  "thiserror",
 ]
 
@@ -2866,7 +2897,7 @@ dependencies = [
  "fuel-asm",
  "fuel-pest",
  "fuel-pest_derive",
- "fuel-tx",
+ "fuel-tx 0.2.1",
  "serde",
  "sway-utils",
 ]
@@ -2962,8 +2993,8 @@ version = "0.0.0"
 dependencies = [
  "forc",
  "fuel-asm",
- "fuel-tx",
- "fuel-vm",
+ "fuel-tx 0.2.1",
+ "fuel-vm 0.2.0",
  "rand 0.8.4",
  "regex",
  "serde_json",
@@ -2975,8 +3006,8 @@ name = "test-sig-gen-util"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "fuel-tx",
- "fuel-vm",
+ "fuel-tx 0.2.1",
+ "fuel-vm 0.2.0",
  "hex",
  "secp256k1",
 ]

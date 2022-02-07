@@ -15,7 +15,8 @@ selector-debug = ["structopt", "hex"]
 derivative = "2.2.0"
 either = "1.6"
 fuel-asm = "0.1"
-fuel-vm = "0.2"
+fuel-vm = "0.4"
+fuel-tx = "0.5.0"
 hex = { version = "0.4", optional = true }
 lazy_static = "1.4"
 pest = { version = "3.0.4", package = "fuel-pest" }
@@ -27,6 +28,7 @@ smallvec = "1.7"
 structopt = { version = "0.3", default-features = false, optional = true }
 sway-ir = { version = "0.3.1", path = "../sway-ir" }
 sway-types = { version = "0.3.1", path = "../sway-types" }
+sway-utils = { version = "0.3.1", path = "../sway-utils" }
 generational-arena = "0.2"
 thiserror = "1.0"
 

@@ -18,6 +18,7 @@ mod lazy_op;
 mod storage;
 mod structs;
 mod subfield;
+use crate::semantic_analysis::StoreOrLoad;
 use contract_call::convert_contract_call_to_asm;
 use enums::convert_enum_instantiation_to_asm;
 use if_exp::convert_if_exp_to_asm;
@@ -362,12 +363,21 @@ pub(crate) fn convert_expression_to_asm(
         }
         // ABI casts are purely compile-time constructs and generate no corresponding bytecode
         TypedExpressionVariant::AbiCast { .. } => ok(vec![], warnings, errors),
-        TypedExpressionVariant::StorageAccess(access) => storage::convert_storage_access_to_asm(
-            access,
-            namespace,
-            return_register,
-            register_sequencer,
-        ),
+        TypedExpressionVariant::StorageAccess(access) => {
+            match (access.mode(), access.field_name(), access.field_ix()) {
+                (StoreOrLoad::Load, Some(field_name), Some(field_ix)) => {
+                    storage::convert_storage_access_to_asm(
+                        field_ix,
+                        field_name,
+                        namespace,
+                        return_register,
+                        register_sequencer,
+                    )
+                }
+                (StoreOrLoad::Store, _, _) => todo!("handle writing values to contract state"),
+                _ => todo!("probably noop"),
+            }
+        }
         a => {
             println!("unimplemented: {:?}", a);
             errors.push(CompileError::Unimplemented(
