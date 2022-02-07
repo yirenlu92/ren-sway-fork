@@ -15,6 +15,7 @@ mod contract_call;
 mod enums;
 mod if_exp;
 mod lazy_op;
+mod storage;
 mod structs;
 mod subfield;
 use contract_call::convert_contract_call_to_asm;
@@ -361,6 +362,12 @@ pub(crate) fn convert_expression_to_asm(
         }
         // ABI casts are purely compile-time constructs and generate no corresponding bytecode
         TypedExpressionVariant::AbiCast { .. } => ok(vec![], warnings, errors),
+        TypedExpressionVariant::StorageAccess(access) => storage::convert_storage_access_to_asm(
+            access,
+            namespace,
+            return_register,
+            register_sequencer,
+        ),
         a => {
             println!("unimplemented: {:?}", a);
             errors.push(CompileError::Unimplemented(
