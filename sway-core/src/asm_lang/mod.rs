@@ -85,6 +85,22 @@ impl Op {
             owning_span: None,
         }
     }
+
+    /// Reads one word from storage
+    pub(crate) fn unowned_storage_read_word(
+        // $rA
+        destination_register: VirtualRegister,
+        // $rB
+        storage_slot_register: VirtualRegister,
+        comment: impl Into<String>,
+    ) -> Self {
+        Op {
+            opcode: Either::Left(VirtualOp::SRW(destination_register, storage_slot_register)),
+            comment: comment.into(),
+            owning_span: None,
+        }
+    }
+
     pub(crate) fn unowned_new_with_comment(opcode: VirtualOp, comment: impl Into<String>) -> Self {
         Op {
             opcode: Either::Left(opcode),

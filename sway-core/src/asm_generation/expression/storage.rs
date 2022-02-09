@@ -28,26 +28,28 @@ pub(super) fn convert_storage_access_to_asm(
     let state_slot_data_label = namespace.insert_data_value(&initial_state_slot.into());
     let state_slot_register = register_sequencer.next();
 
-    let size_of_type: usize = todo!();
-    let mut size_read: usize = 0;
-    let mut words_left_to_read: usize = 0;
+    let size_of_type: u64 = todo!();
+    let mut words_read = 0;
     asm_buf.push(Op::unowned_load_data_comment(
         state_slot_register,
         state_slot_data_label,
         "Load state slot for data load",
     ));
 
-    while words_left_to_read > 0 {
-        if words_left_to_read < 4 {
+    while size_of_type - words_read > 0 {
+        if size_of_type - words_read < 4 {
             asm_buf.append(&mut read_single_word(
-                size_read,
+                words_read,
                 initial_state_slot,
+                state_slot_register,
                 todo!("return register if total size less than a word, pointer if not"),
+                register_sequencer,
+                namespace,
             ));
-            words_left_to_read = 0;
+            words_read += 1;
         } else {
             asm_buf.append(&mut read_quad_word());
-            words_left_to_read -= 4;
+            words_read += 4;
         }
     }
 
@@ -57,14 +59,39 @@ pub(super) fn convert_storage_access_to_asm(
 }
 
 fn read_single_word(
-    size_read: usize,
+    size_read: u64,
     initial_storage_slot: Bytes32,
+    initial_storage_slot_register: VirtualRegister,
     pointer: VirtualRegister,
+    register_sequencer: &mut RegisterSequencer,
+    namespace: &mut AsmNamespace,
 ) -> Vec<Op> {
     // 1. add size_read to initial_storage_slot
     // 2. insert that into the data section, load to a register.
     // 3. load word into address in pointer // TODO are structs in the heap or are they pointers to stack memory?
-    todo!()
+    let mut asm_buf = vec![];
+
+    // 1.
+    let slot_register = if size_read == 0 {
+        initial_storage_slot_register
+    } else {
+        let storage_slot_to_read = add_to_b256(initial_storage_slot, size_read);
+        let slot_register = register_sequencer.next();
+        let slot_data_label = namespace.insert_data_value(&storage_slot_to_read.into());
+        asm_buf.push(Op::unowned_load_data_comment(
+            slot_register.clone(),
+            slot_data_label,
+            "load storage slot",
+        ));
+        slot_register
+    };
+    asm_buf.push(Op::unowned_storage_read_word(
+        pointer,
+        slot_register,
+        format!("storage read word {}", size_read),
+    ));
+
+    asm_buf
 }
 
 fn read_quad_word() -> Vec<Op> {
@@ -81,4 +108,11 @@ fn calculate_storage_slot(ix: StateIndex) -> Bytes32 {
         ix
     );
     Hasher::hash(storage_slot)
+}
+
+fn add_to_b256(x: Bytes32, y: u64) -> Bytes32 {
+    let x = bigint::uint::U256::from(*x);
+    let y = bigint::uint::U256::from(y);
+    let res: [u8; 32] = (x + y).into();
+    Bytes32::from(res)
 }
