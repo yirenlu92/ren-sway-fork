@@ -12,6 +12,9 @@ use crate::{
 };
 use either::Either;
 
+mod storage;
+use storage::*;
+
 pub(crate) fn convert_reassignment_to_asm(
     reassignment: &TypedReassignment,
     namespace: &mut AsmNamespace,
@@ -39,6 +42,21 @@ pub(crate) fn convert_reassignment_to_asm(
     );
 
     buf.append(&mut rhs);
+
+    if let Some("storage") = reassignment.lhs.get(0).map(|x| x.name.as_str()) {
+        return compile_storage_write_to_asm(
+            &reassignment.lhs,
+            namespace,
+            register_sequencer,
+            return_register,
+            look_up_type_id(reassignment.rhs.return_type)
+                .size_in_words(&reassignment.rhs.span)
+                .unwrap_or_else(|e| {
+                    errors.push(e);
+                    0
+                }),
+        );
+    }
 
     match reassignment.lhs.len() {
         0 => unreachable!(),
