@@ -372,6 +372,12 @@ pub(crate) fn convert_expression_to_asm(
                         namespace,
                         return_register,
                         register_sequencer,
+                        look_up_type_id(exp.return_type)
+                            .size_in_words(field_name.span())
+                            .unwrap_or_else(|e| {
+                                errors.push(e);
+                                0
+                            }),
                     )
                 }
                 (StoreOrLoad::Store, _, _) => todo!("handle writing values to contract state"),
