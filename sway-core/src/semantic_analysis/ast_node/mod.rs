@@ -188,6 +188,9 @@ impl TypedAstNode {
                     };
                     let mut res = match a.import_type {
                         ImportType::Star => namespace.star_import(from_module, a.call_path),
+                        ImportType::SelfImport => {
+                            namespace.self_import(from_module, a.call_path, a.alias)
+                        }
                         ImportType::Item(s) => {
                             namespace.item_import(from_module, a.call_path, &s, a.alias)
                         }
@@ -260,6 +263,7 @@ impl TypedAstNode {
                                     name: name.clone(),
                                     body,
                                     is_mutable: is_mutable.into(),
+                                    const_decl_origin: false,
                                     type_ascription,
                                 });
                             namespace.insert(name, typed_var_decl.clone());
@@ -292,6 +296,7 @@ impl TypedAstNode {
                                     } else {
                                         VariableMutability::Immutable
                                     },
+                                    const_decl_origin: true,
                                     type_ascription: insert_type(type_ascription),
                                 });
                             namespace.insert(name, typed_const_decl.clone());
@@ -836,6 +841,7 @@ fn import_new_file(
     };
     dep_config.file_name = file_name;
     dep_config.dir_of_code = Arc::new(dep_path);
+    let dep_namespace = create_new_scope(namespace);
     let crate::InnerDependencyCompileResult {
         name,
         namespace: module,
@@ -843,7 +849,7 @@ fn import_new_file(
     } = check!(
         crate::compile_inner_dependency(
             file_as_string,
-            namespace,
+            dep_namespace,
             dep_config,
             dead_code_graph,
             dependency_graph
@@ -1168,6 +1174,7 @@ fn type_check_trait_methods(
                         },
                         // TODO allow mutable function params?
                         is_mutable: VariableMutability::Immutable,
+                        const_decl_origin: false,
                         type_ascription: r#type,
                     }),
                 );

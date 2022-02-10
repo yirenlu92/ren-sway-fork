@@ -308,7 +308,7 @@ impl RegisterPool {
     pub(crate) fn get_register(
         &mut self,
         virtual_register: &VirtualRegister,
-        op_register_mapping: &[(RealizedOp, std::collections::HashSet<VirtualRegister>)],
+        op_register_mapping: &[(RealizedOp, std::collections::BTreeSet<VirtualRegister>)],
     ) -> Option<AllocatedRegister> {
         // check if this register has already been allocated for
         if let a @ Some(_) = self.registers.iter().find_map(
@@ -349,7 +349,7 @@ impl RegisterPool {
 
 fn virtual_register_is_never_accessed_again(
     reg: &VirtualRegister,
-    ops: &[(RealizedOp, std::collections::HashSet<VirtualRegister>)],
+    ops: &[(RealizedOp, std::collections::BTreeSet<VirtualRegister>)],
 ) -> bool {
     !ops.iter().any(|(_, regs)| regs.contains(reg))
 }
@@ -430,6 +430,7 @@ impl fmt::Display for DataSection {
                 Literal::U16(num) => format!(".u16 {:#04x}", num),
                 Literal::U32(num) => format!(".u32 {:#04x}", num),
                 Literal::U64(num) => format!(".u64 {:#04x}", num),
+                Literal::Numeric(num) => format!(".u64 {:#04x}", num),
                 Literal::Boolean(b) => format!(".bool {}", if *b { "0x01" } else { "0x00" }),
                 Literal::String(st) => format!(".str \"{}\"", st.as_str()),
                 Literal::Byte(b) => format!(".byte {:#08b}", b),
@@ -1252,13 +1253,14 @@ fn build_contract_abi_switch(
         });
     }
 
-    // if none of the selectors matched, then ret
+    // if none of the selectors matched, then revert
     asm_buf.push(Op {
         // see https://github.com/FuelLabs/sway/issues/97#issuecomment-875674105
-        opcode: Either::Left(VirtualOp::RET(VirtualRegister::Constant(
+        // and https://github.com/FuelLabs/sway/issues/444#issuecomment-1012507337
+        opcode: Either::Left(VirtualOp::RVRT(VirtualRegister::Constant(
             ConstantRegister::Zero,
         ))),
-        comment: "return if no selectors matched".into(),
+        comment: "revert if no selectors matched".into(),
         owning_span: None,
     });
 

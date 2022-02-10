@@ -201,6 +201,24 @@ impl TypedExpression {
                 dependency_graph,
                 opts,
             ),
+            Expression::TupleIndex {
+                prefix,
+                index,
+                index_span,
+                span,
+            } => Self::type_check_tuple_index(
+                *prefix,
+                index,
+                index_span,
+                span,
+                namespace,
+                crate_namespace,
+                self_type,
+                build_config,
+                dead_code_graph,
+                dependency_graph,
+                opts,
+            ),
             Expression::DelineatedPath {
                 call_path,
                 span,
@@ -330,9 +348,33 @@ impl TypedExpression {
         typed_expression.return_type = namespace
             .resolve_type_with_self(look_up_type_id(typed_expression.return_type), self_type)
             .unwrap_or_else(|_| {
-                errors.push(CompileError::UnknownType { span: expr_span });
+                errors.push(CompileError::UnknownType {
+                    span: expr_span.clone(),
+                });
                 insert_type(TypeInfo::ErrorRecovery)
             });
+
+        // Literals of type Numeric can now be resolved if typed_expression.return_type is
+        // an UnsignedInteger or a Numeric
+        if let TypedExpressionVariant::Literal(lit) = typed_expression.clone().expression {
+            if let Literal::Numeric(_) = lit {
+                match look_up_type_id(typed_expression.return_type) {
+                    TypeInfo::UnsignedInteger(_) | TypeInfo::Numeric => {
+                        typed_expression = check!(
+                            Self::resolve_numeric_literal(
+                                lit,
+                                expr_span,
+                                typed_expression.return_type
+                            ),
+                            return err(warnings, errors),
+                            warnings,
+                            errors
+                        )
+                    }
+                    _ => {}
+                }
+            }
+        }
 
         ok(typed_expression, warnings, errors)
     }
@@ -353,6 +395,7 @@ impl TypedExpression {
     fn type_check_literal(lit: Literal, span: Span) -> CompileResult<TypedExpression> {
         let return_type = match &lit {
             Literal::String(s) => TypeInfo::Str(s.as_str().len() as u64),
+            Literal::Numeric(_) => TypeInfo::Numeric,
             Literal::U8(_) => TypeInfo::UnsignedInteger(IntegerBits::Eight),
             Literal::U16(_) => TypeInfo::UnsignedInteger(IntegerBits::Sixteen),
 
@@ -1167,6 +1210,7 @@ impl TypedExpression {
         // the namespace and we could pull it from there.
         let (storage_access, return_type) = check!(
             arguments.namespace.apply_storage_load(arguments.checkee),
+
             return err(warnings, errors),
             warnings,
             errors
@@ -1181,6 +1225,75 @@ impl TypedExpression {
             warnings,
             errors,
         )
+    }
+    fn type_check_tuple_index(
+        prefix: Expression,
+        index: usize,
+        index_span: Span,
+        span: Span,
+        namespace: crate::semantic_analysis::NamespaceRef,
+        crate_namespace: NamespaceRef,
+        self_type: TypeId,
+        build_config: &BuildConfig,
+        dead_code_graph: &mut ControlFlowGraph,
+        dependency_graph: &mut HashMap<String, HashSet<String>>,
+        opts: TCOpts,
+    ) -> CompileResult<TypedExpression> {
+        let mut warnings = vec![];
+        let mut errors = vec![];
+        let parent = check!(
+            TypedExpression::type_check(TypeCheckArguments {
+                checkee: prefix,
+                namespace,
+                crate_namespace,
+                return_type_annotation: insert_type(TypeInfo::Unknown),
+                help_text: Default::default(),
+                self_type,
+                build_config,
+                dead_code_graph,
+                dependency_graph,
+                mode: Mode::NonAbi,
+                opts,
+            }),
+            return err(warnings, errors),
+            warnings,
+            errors
+        );
+        let mut tuple_elem_to_access = None;
+        let tuple_elems = check!(
+            namespace.get_tuple_elems(parent.return_type, parent.span.as_str(), &parent.span),
+            return err(warnings, errors),
+            warnings,
+            errors
+        );
+        for (pos, elem) in tuple_elems.iter().enumerate() {
+            if pos == index {
+                tuple_elem_to_access = Some(*elem);
+            }
+        }
+        let tuple_elem_to_access = match tuple_elem_to_access {
+            Some(tuple_elem_to_access) => tuple_elem_to_access,
+            None => {
+                errors.push(CompileError::TupleOutOfBounds {
+                    index,
+                    count: tuple_elems.len(),
+                    span: index_span,
+                });
+                return err(warnings, errors);
+            }
+        };
+        let exp = TypedExpression {
+            expression: TypedExpressionVariant::TupleElemAccess {
+                resolved_type_of_parent: parent.return_type,
+                prefix: Box::new(parent),
+                elem_to_access_num: index,
+                elem_to_access_span: index_span,
+            },
+            return_type: tuple_elem_to_access,
+            is_constant: IsConstant::No,
+            span,
+        };
+        ok(exp, warnings, errors)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1836,6 +1949,98 @@ impl TypedExpression {
         }
     }
 
+    fn resolve_numeric_literal(
+        lit: Literal,
+        span: Span,
+        new_type: TypeId,
+    ) -> CompileResult<TypedExpression> {
+        let mut errors = vec![];
+        let pest_span = span.clone().span;
+        let path = span.clone().path;
+
+        // Parse and resolve a Numeric(span) based on new_type.
+        let (val, new_integer_type) = match lit {
+            Literal::Numeric(num) => match look_up_type_id(new_type) {
+                TypeInfo::UnsignedInteger(n) => match n {
+                    IntegerBits::Eight => (
+                        num.to_string().parse().map(Literal::U8).map_err(|e| {
+                            Literal::handle_parse_int_error(
+                                e,
+                                TypeInfo::UnsignedInteger(IntegerBits::Eight),
+                                pest_span,
+                                path,
+                            )
+                        }),
+                        new_type,
+                    ),
+                    IntegerBits::Sixteen => (
+                        num.to_string().parse().map(Literal::U16).map_err(|e| {
+                            Literal::handle_parse_int_error(
+                                e,
+                                TypeInfo::UnsignedInteger(IntegerBits::Sixteen),
+                                pest_span,
+                                path,
+                            )
+                        }),
+                        new_type,
+                    ),
+                    IntegerBits::ThirtyTwo => (
+                        num.to_string().parse().map(Literal::U32).map_err(|e| {
+                            Literal::handle_parse_int_error(
+                                e,
+                                TypeInfo::UnsignedInteger(IntegerBits::ThirtyTwo),
+                                pest_span,
+                                path,
+                            )
+                        }),
+                        new_type,
+                    ),
+                    IntegerBits::SixtyFour => (
+                        num.to_string().parse().map(Literal::U64).map_err(|e| {
+                            Literal::handle_parse_int_error(
+                                e,
+                                TypeInfo::UnsignedInteger(IntegerBits::SixtyFour),
+                                pest_span,
+                                path,
+                            )
+                        }),
+                        new_type,
+                    ),
+                },
+                TypeInfo::Numeric => (
+                    num.to_string().parse().map(Literal::U64).map_err(|e| {
+                        Literal::handle_parse_int_error(
+                            e,
+                            TypeInfo::UnsignedInteger(IntegerBits::SixtyFour),
+                            pest_span,
+                            path,
+                        )
+                    }),
+                    insert_type(TypeInfo::UnsignedInteger(IntegerBits::SixtyFour)),
+                ),
+                _ => unreachable!("Unexpected type for integer literals"),
+            },
+            _ => unreachable!("Unexpected non-integer literals"),
+        };
+
+        match val {
+            Ok(v) => {
+                let exp = TypedExpression {
+                    expression: TypedExpressionVariant::Literal(v),
+                    return_type: new_integer_type,
+                    is_constant: IsConstant::Yes,
+                    span,
+                };
+                ok(exp, vec![], vec![])
+            }
+            Err(e) => {
+                errors.push(e);
+                let exp = error_recovery_expr(span);
+                ok(exp, vec![], errors)
+            }
+        }
+    }
+
     pub(crate) fn pretty_print(&self) -> String {
         format!(
             "{} ({})",
@@ -1847,6 +2052,8 @@ impl TypedExpression {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Mutex;
+
     use super::*;
 
     fn do_type_check(expr: Expression, type_annotation: TypeId) -> CompileResult<TypedExpression> {
@@ -1860,6 +2067,7 @@ mod tests {
             print_intermediate_asm: false,
             print_finalized_asm: false,
             print_ir: false,
+            generated_names: Arc::new(Mutex::new(vec![])),
         };
         let mut dead_code_graph: ControlFlowGraph = Default::default();
         let mut dependency_graph = HashMap::new();
