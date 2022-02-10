@@ -65,8 +65,8 @@ pub(super) fn convert_storage_access_to_asm(
             asm_buf.append(&mut read_single_word(
                 words_read,
                 initial_state_slot,
-                state_slot_register,
-                todo!("return register if total size less than a word, pointer if not"),
+                state_slot_register.clone(),
+                pointer_register.clone(),
                 register_sequencer,
                 namespace,
             ));
@@ -75,8 +75,8 @@ pub(super) fn convert_storage_access_to_asm(
             asm_buf.append(&mut read_quad_word(
                 words_read,
                 initial_state_slot,
-                state_slot_register,
-                todo!("return register if total size less than a word, pointer if not"),
+                state_slot_register.clone(),
+                pointer_register.clone(),
                 register_sequencer,
                 namespace,
             ));
@@ -84,9 +84,11 @@ pub(super) fn convert_storage_access_to_asm(
         }
     }
 
-    //    namespace.insert_
-    todo!();
-    ok(asm_buf, warnings, errors);
+    asm_buf.push(Op::unowned_register_move(
+        return_register.clone(),
+        pointer_register,
+    ));
+    ok(asm_buf, warnings, errors)
 }
 
 fn read_single_word(

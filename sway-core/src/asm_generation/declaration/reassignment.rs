@@ -85,6 +85,7 @@ pub(crate) fn convert_reassignment_to_asm(
                 .map(|ReassignmentLhs { r#type, name }| -> Result<_, _> {
                     match resolve_type(*r#type, name.span()) {
                         Ok(TypeInfo::Struct { ref fields, .. }) => Ok((fields.clone(), name)),
+                        Ok(TypeInfo::Storage { ref fields, .. }) => Ok((fields.clone(), name)),
                         Ok(ref a) => Err(CompileError::NotAStruct {
                             name: name.as_str().to_string(),
                             span: name.span().clone(),
