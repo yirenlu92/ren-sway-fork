@@ -126,9 +126,10 @@ fn_signature              =  {impurity_keyword? ~ fn_decl_keyword ~ fn_decl_name
 var_lhs                   =  {var_name|var_tuple}
 var_name                  =  {mut_keyword? ~ ident}
 var_tuple                 =  {"(" ~ (var_lhs ~ ("," ~ var_lhs)* ~ ","?)? ~ ")" }
-reassignment              =  {variable_reassignment | struct_field_reassignment}
+reassignment              =  {variable_reassignment | storage_reassignment | struct_field_reassignment}
 variable_reassignment     =  {var_exp ~ assign ~ expr ~ ";"}
 struct_field_reassignment =  {struct_field_access ~ assign ~ expr ~ ";" }
+storage_reassignment      =  {"storage" ~ "." ~ reassignment }
 const_decl                =  {visibility ~ const_decl_keyword ~ var_name ~ type_ascription? ~ assign ~ literal_value ~ ";"}
 
 visibility =  {"pub"?}

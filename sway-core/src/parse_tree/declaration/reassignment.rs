@@ -130,6 +130,7 @@ impl Reassignment {
                     errors,
                 )
             }
+            Rule::storage_reassignment => todo!("parse storage write"),
             _ => unreachable!("guaranteed by grammar"),
         }
     }

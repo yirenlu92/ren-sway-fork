@@ -1,8 +1,9 @@
 use super::*;
 use crate::{
     asm_generation::{
-        convert_expression_to_asm, expression::get_contiguous_memory_layout, AsmNamespace,
-        RegisterSequencer,
+        convert_expression_to_asm,
+        expression::{calculate_storage_slot, get_contiguous_memory_layout},
+        AsmNamespace, RegisterSequencer,
     },
     asm_lang::{VirtualImmediate12, VirtualOp, VirtualRegister},
     constants::VM_WORD_SIZE,
@@ -19,6 +20,13 @@ pub(crate) fn compile_storage_write_to_asm(
     rhs_evaluated_register: VirtualRegister,
     size_of_rhs_type_in_words: u64,
 ) -> CompileResult<Vec<Op>> {
+    if reassignment_lhs.len() < 2 || reassignment_lhs[0].name.as_str() != "storage" {
+        todo!("internal invariant error");
+    }
+    let field_to_access = &reassignment_lhs[1];
+
+    //    let storage_slot_value = calculate_storage_slot(&field_to_access.name);
+
     // 1. calculate the storage slot being accessed's field
     // 2. calculate the offset in words to the subfield being accessed
     // 3. repeat while there are lhs entries left

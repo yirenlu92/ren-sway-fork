@@ -22,6 +22,7 @@ use crate::semantic_analysis::StoreOrLoad;
 use contract_call::convert_contract_call_to_asm;
 use enums::convert_enum_instantiation_to_asm;
 use if_exp::convert_if_exp_to_asm;
+pub(crate) use storage::*;
 pub(crate) use structs::{
     convert_struct_expression_to_asm, convert_tuple_expression_to_asm, get_contiguous_memory_layout,
 };

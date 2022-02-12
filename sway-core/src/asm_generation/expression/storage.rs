@@ -164,7 +164,7 @@ fn read_quad_word(
     asm_buf
 }
 
-fn calculate_storage_slot(ix: StateIndex) -> Bytes32 {
+pub fn calculate_storage_slot(ix: StateIndex) -> Bytes32 {
     let storage_slot = format!(
         "{}{:?}",
         sway_utils::constants::STORAGE_DOMAIN_SEPARATOR,
