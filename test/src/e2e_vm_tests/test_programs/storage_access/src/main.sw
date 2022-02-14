@@ -24,13 +24,19 @@ impure fn returns_owner() -> b256 {
     (storage.owner).data.value
 }
 
+impure fn set_number(x: u64) {
+  storage.number = x;
+}
+
 impure fn set_owner(val: b256) {
     storage.owner.data.value = val;
 }
 
+
 abi TestAbi {
   fn test_deposit(unused: u64, unused: u64, unused: b256, val: u64) -> b256;
   fn set_owner(unused: u64, unused: u64, unused: b256, new_owner: b256);
+  fn set_number(unused: u64, unused: u64, unused: b256, new_number: u64);
   fn get_number(unused: u64, unused: u64, unused: b256, unused: ()) -> u64;
 }
 
@@ -44,5 +50,8 @@ impl TestAbi for Contract {
 
   impure fn get_number(unused: u64, unused: u64, unused: b256, unused: ()) -> u64 {
     storage.number
+  }
+  impure fn get_number(unused: u64, unused: u64, unused: b256, new_number: u64) {
+    set_number(new_number)
   }
 }

@@ -6,14 +6,23 @@ use crate::{
     parser::Rule,
 };
 
-use sway_types::span::Span;
+use sway_types::{span::Span, Ident};
 
 use pest::iterators::Pair;
+
+/// Represents the left hand side of a reassignment, which could either be a regular variable
+/// expression, denoted by [ReassignmentTarget::VariableExpression], or, a storage field, denoted
+/// by [ReassignmentTarget::StorageField].
+#[derive(Debug, Clone)]
+pub enum ReassignmentTarget {
+    VariableExpression(Expression),
+    StorageField(Ident),
+}
 
 #[derive(Debug, Clone)]
 pub struct Reassignment {
     // the thing being reassigned
-    pub lhs: Box<Expression>,
+    pub lhs: ReassignmentTarget,
     // the expression that is being assigned to the lhs
     pub rhs: Expression,
     pub(crate) span: Span,
@@ -35,31 +44,22 @@ impl Reassignment {
         let variable_or_struct_reassignment = iter.next().expect("guaranteed by grammar");
         match variable_or_struct_reassignment.as_rule() {
             Rule::variable_reassignment => {
-                let mut iter = variable_or_struct_reassignment.into_inner();
-                let name = check!(
-                    Expression::parse_from_pair_inner(iter.next().unwrap(), config),
+                let (lhs, rhs) = check!(
+                    parse_simple_variable_reassignment(
+                        variable_or_struct_reassignment,
+                        config,
+                        path,
+                        Expression::parse_from_pair
+                    ),
                     return err(warnings, errors),
-                    warnings,
-                    errors
-                );
-                let body = iter.next().unwrap();
-                let body = check!(
-                    Expression::parse_from_pair(body.clone(), config),
-                    Expression::Tuple {
-                        fields: vec![],
-                        span: Span {
-                            span: body.as_span(),
-                            path
-                        }
-                    },
                     warnings,
                     errors
                 );
 
                 ok(
                     Reassignment {
-                        lhs: Box::new(name),
-                        rhs: body,
+                        lhs: ReassignmentTarget::VariableExpression(lhs),
+                        rhs,
                         span,
                     },
                     warnings,
@@ -122,7 +122,7 @@ impl Reassignment {
 
                 ok(
                     Reassignment {
-                        lhs: Box::new(expr),
+                        lhs: ReassignmentTarget::VariableExpression(expr),
                         rhs: body,
                         span,
                     },
@@ -130,7 +130,58 @@ impl Reassignment {
                     errors,
                 )
             }
-            Rule::storage_reassignment => todo!("parse storage write"),
+            Rule::storage_reassignment => {
+                // there is some ugly handling of the pest data structure here
+                // because we are reusing code from struct field reassignments
+                // this leads to some nested `Rule`s, so the actual storage
+                // reassignment requires some `expect()`s to extract.
+                let mut iter = variable_or_struct_reassignment.into_inner();
+                let reassignment = iter.next().expect("guaranteed by grammar");
+                let mut iter = reassignment
+                    .into_inner()
+                    .next()
+                    .expect("guaranteed by grammar")
+                    .into_inner()
+                    .next()
+                    .expect("guaranteed by grammar")
+                    .into_inner();
+
+                dbg!(&iter);
+
+                let pair = iter.next().expect("guaranteed by grammar");
+
+                match pair.as_rule() {
+                    Rule::var_name_ident => {
+                        // then this is a single field reassignment with no inner struct fields
+                        let (storage_field_to_access, value_to_assign) = check!(
+                            parse_simple_variable_reassignment(
+                                pair,
+                                config,
+                                path,
+                                ident::parse_from_pair,
+                            ),
+                            return err(warnings, errors),
+                            warnings,
+                            errors
+                        );
+                        ok(
+                            Reassignment {
+                                lhs: ReassignmentTarget::StorageField(storage_field_to_access),
+                                rhs: value_to_assign,
+                                span,
+                            },
+                            warnings,
+                            errors,
+                        )
+                    }
+                    Rule::subfield_path => {
+                        // then this is a reassignment to an inner field of a struct within storage
+
+                        todo!()
+                    }
+                    _ => unreachable!("guaranteed by grammar"),
+                }
+            }
             _ => unreachable!("guaranteed by grammar"),
         }
     }
@@ -219,4 +270,39 @@ fn parse_call_item_ensure_only_var(
         a => unreachable!("{:?}", a),
     };
     ok(exp, warnings, errors)
+}
+
+fn parse_simple_variable_reassignment<F, T>(
+    pair: Pair<Rule>,
+    config: Option<&BuildConfig>,
+    path: Option<std::sync::Arc<std::path::PathBuf>>,
+    parser: F,
+) -> CompileResult<(T, Expression)>
+where
+    F: Fn(Pair<Rule>, Option<&BuildConfig>) -> CompileResult<T>,
+{
+    let mut warnings = vec![];
+    let mut errors = vec![];
+    let mut iter = pair.into_inner();
+    let name = check!(
+        parser(iter.next().unwrap(), config),
+        return err(warnings, errors),
+        warnings,
+        errors
+    );
+    let body = iter.next().unwrap();
+    let body = check!(
+        Expression::parse_from_pair(body.clone(), config),
+        Expression::Tuple {
+            fields: vec![],
+            span: Span {
+                span: body.as_span(),
+                path
+            }
+        },
+        warnings,
+        errors
+    );
+
+    ok((name, body), warnings, errors)
 }
