@@ -117,6 +117,7 @@ impl TypedAstNode {
             TypedAstNodeContent::SideEffect => (),
         }
     }
+
     fn type_info(&self) -> TypeInfo {
         // return statement should be ()
         use TypedAstNodeContent::*;
@@ -869,7 +870,7 @@ fn import_new_file(
 }
 
 fn reassignment(
-    arguments: TypeCheckArguments<'_, (Box<Expression>, Expression)>,
+    arguments: TypeCheckArguments<'_, (ReassignmentTarget, Expression)>,
     span: Span,
 ) -> CompileResult<TypedDeclaration> {
     let TypeCheckArguments {
@@ -886,8 +887,8 @@ fn reassignment(
     let mut errors = vec![];
     let mut warnings = vec![];
     // ensure that the lhs is a variable expression or struct field access
-    match *lhs {
-        Expression::VariableExpression { name, span } => {
+    match lhs {
+        ReassignmentTarget::VariableExpression(Expression::VariableExpression { name, span }) => {
             // check that the reassigned name exists
             let thing_to_reassign = match namespace.clone().get_symbol(&name).value {
                 Some(TypedDeclaration::VariableDeclaration(TypedVariableDeclaration {
@@ -955,11 +956,11 @@ fn reassignment(
                 errors,
             )
         }
-        Expression::SubfieldExpression {
+        ReassignmentTarget::VariableExpression(Expression::SubfieldExpression {
             prefix,
             field_to_access,
             span,
-        } => {
+        }) => {
             let mut expr = *prefix;
             let mut names_vec = vec![];
             let final_return_type = loop {
@@ -1055,6 +1056,7 @@ fn reassignment(
                 errors,
             )
         }
+        ReassignmentTarget::StorageField(field) => todo!("{:?}", field),
         _ => {
             errors.push(CompileError::InvalidExpressionOnLhs { span });
             err(warnings, errors)

@@ -4,7 +4,9 @@ use crate::{
     utils::common::extract_var_body,
 };
 use lspower::lsp::{Position, Range};
-use sway_core::{AstNode, AstNodeContent, Declaration, Expression, VariableDeclaration};
+use sway_core::{
+    AstNode, AstNodeContent, Declaration, Expression, ReassignmentTarget, VariableDeclaration,
+};
 use sway_types::{ident::Ident, span::Span};
 
 #[derive(Debug, Clone)]
@@ -116,11 +118,21 @@ fn handle_declaration(declaration: Declaration, tokens: &mut Vec<Token>) {
         }
         Declaration::Reassignment(reassignment) => {
             let token_type = TokenType::Reassignment;
-            let token = match *reassignment.lhs {
-                // a reassignment's lhs can _only_ be a variable expression or
-                // struct field a subfield expression
-                Expression::SubfieldExpression { span, .. } => Token::from_span(span, token_type),
-                Expression::VariableExpression { name, .. } => Token::from_ident(&name, token_type),
+            let token = match reassignment.lhs {
+                ReassignmentTarget::VariableExpression(Expression::SubfieldExpression {
+                    span,
+                    ..
+                }) => Token::from_span(span, token_type),
+                ReassignmentTarget::VariableExpression(Expression::VariableExpression {
+                    name,
+                    ..
+                }) => Token::from_ident(&name, token_type),
+                ReassignmentTarget::StorageField(Expression::VariableExpression {
+                    name, ..
+                }) => Token::from_ident(&name, token_type),
+                ReassignmentTarget::StorageField(Expression::SubfieldExpression {
+                    span, ..
+                }) => Token::from_span(span, token_type),
                 _ => {
                     unreachable!("any other reassignment lhs is invalid and cannot be constructed.")
                 }

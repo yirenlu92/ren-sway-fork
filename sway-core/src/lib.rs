@@ -36,7 +36,9 @@ pub use semantic_analysis::{
     TypedDeclaration, TypedFunctionDeclaration, TypedParseTree,
 };
 pub mod types;
-pub use crate::parse_tree::{Declaration, Expression, UseStatement, WhileLoop, *};
+pub use crate::parse_tree::{
+    Declaration, Expression, ReassignmentTarget, UseStatement, WhileLoop, *,
+};
 
 pub use error::{CompileError, CompileResult, CompileWarning};
 use sway_types::{ident::Ident, span};

@@ -16,7 +16,7 @@ use pest::iterators::Pair;
 #[derive(Debug, Clone)]
 pub enum ReassignmentTarget {
     VariableExpression(Expression),
-    StorageField(Ident),
+    StorageField(Expression),
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +49,6 @@ impl Reassignment {
                         variable_or_struct_reassignment,
                         config,
                         path,
-                        Expression::parse_from_pair
                     ),
                     return err(warnings, errors),
                     warnings,
@@ -67,63 +66,17 @@ impl Reassignment {
                 )
             }
             Rule::struct_field_reassignment => {
-                let mut iter = variable_or_struct_reassignment.into_inner();
-                let lhs = iter.next().expect("guaranteed by grammar");
-                let rhs = iter.next().expect("guaranteed by grammar");
-                let rhs_span = Span {
-                    span: rhs.as_span(),
-                    path: path.clone(),
-                };
-                let body = check!(
-                    Expression::parse_from_pair(rhs, config),
-                    Expression::Tuple {
-                        fields: vec![],
-                        span: rhs_span
-                    },
-                    warnings,
-                    errors
-                );
-
-                let inner = lhs.into_inner().next().expect("guaranteed by grammar");
-                assert_eq!(inner.as_rule(), Rule::subfield_path);
-
-                // treat parent as one expr, final name as the field to be accessed
-                // if there are multiple fields, this is a nested expression
-                // i.e. `a.b.c` is a lookup of field `c` on `a.b` which is a lookup
-                // of field `b` on `a`
-                // the first thing is either an exp or a var, everything subsequent must be
-                // a field
-                let mut name_parts = inner.into_inner();
-                let mut expr = check!(
-                    parse_subfield_path_ensure_only_var(
-                        name_parts.next().expect("guaranteed by grammar"),
-                        config
-                    ),
+                let (lhs, rhs) = check!(
+                    parse_subfield_reassignment(variable_or_struct_reassignment, config, path),
                     return err(warnings, errors),
                     warnings,
                     errors
                 );
 
-                for name_part in name_parts {
-                    expr = Expression::SubfieldExpression {
-                        prefix: Box::new(expr.clone()),
-                        span: Span {
-                            span: name_part.as_span(),
-                            path: path.clone(),
-                        },
-                        field_to_access: check!(
-                            ident::parse_from_pair(name_part, config),
-                            continue,
-                            warnings,
-                            errors
-                        ),
-                    }
-                }
-
                 ok(
                     Reassignment {
-                        lhs: ReassignmentTarget::VariableExpression(expr),
-                        rhs: body,
+                        lhs: ReassignmentTarget::VariableExpression(lhs),
+                        rhs,
                         span,
                     },
                     warnings,
@@ -137,29 +90,16 @@ impl Reassignment {
                 // reassignment requires some `expect()`s to extract.
                 let mut iter = variable_or_struct_reassignment.into_inner();
                 let reassignment = iter.next().expect("guaranteed by grammar");
-                let mut iter = reassignment
-                    .into_inner()
-                    .next()
-                    .expect("guaranteed by grammar")
-                    .into_inner()
-                    .next()
-                    .expect("guaranteed by grammar")
-                    .into_inner();
-
-                dbg!(&iter);
+                let mut iter = reassignment.into_inner();
 
                 let pair = iter.next().expect("guaranteed by grammar");
 
                 match pair.as_rule() {
-                    Rule::var_name_ident => {
+                    Rule::variable_reassignment => {
                         // then this is a single field reassignment with no inner struct fields
+                        dbg!(&pair);
                         let (storage_field_to_access, value_to_assign) = check!(
-                            parse_simple_variable_reassignment(
-                                pair,
-                                config,
-                                path,
-                                ident::parse_from_pair,
-                            ),
+                            dbg!(parse_simple_variable_reassignment(pair, config, path)),
                             return err(warnings, errors),
                             warnings,
                             errors
@@ -174,12 +114,32 @@ impl Reassignment {
                             errors,
                         )
                     }
-                    Rule::subfield_path => {
+                    Rule::struct_field_reassignment => {
                         // then this is a reassignment to an inner field of a struct within storage
+                        let (subfield_storage_path, body) = check!(
+                            parse_subfield_reassignment(pair, config, path),
+                            return err(warnings, errors),
+                            warnings,
+                            errors
+                        );
 
-                        todo!()
+                        ok(
+                            Reassignment {
+                                lhs: ReassignmentTarget::StorageField(subfield_storage_path),
+                                rhs: body,
+                                span,
+                            },
+                            warnings,
+                            errors,
+                        )
                     }
-                    _ => unreachable!("guaranteed by grammar"),
+                    Rule::storage_reassignment => {
+                        errors.push(todo!(
+                            "Nested storage reassignment is invalid; parsing error"
+                        ));
+                        return err(warnings, errors);
+                    }
+                    a => unreachable!("guaranteed by grammar: {:?}", a),
                 }
             }
             _ => unreachable!("guaranteed by grammar"),
@@ -272,20 +232,16 @@ fn parse_call_item_ensure_only_var(
     ok(exp, warnings, errors)
 }
 
-fn parse_simple_variable_reassignment<F, T>(
+fn parse_simple_variable_reassignment(
     pair: Pair<Rule>,
     config: Option<&BuildConfig>,
     path: Option<std::sync::Arc<std::path::PathBuf>>,
-    parser: F,
-) -> CompileResult<(T, Expression)>
-where
-    F: Fn(Pair<Rule>, Option<&BuildConfig>) -> CompileResult<T>,
-{
+) -> CompileResult<(Expression, Expression)> {
     let mut warnings = vec![];
     let mut errors = vec![];
     let mut iter = pair.into_inner();
     let name = check!(
-        parser(iter.next().unwrap(), config),
+        Expression::parse_from_pair(iter.next().unwrap(), config),
         return err(warnings, errors),
         warnings,
         errors
@@ -305,4 +261,66 @@ where
     );
 
     ok((name, body), warnings, errors)
+}
+fn parse_subfield_reassignment(
+    pair: Pair<Rule>,
+    config: Option<&BuildConfig>,
+    path: Option<std::sync::Arc<std::path::PathBuf>>,
+) -> CompileResult<(Expression, Expression)> {
+    let mut warnings = vec![];
+    let mut errors = vec![];
+    let mut iter = pair.into_inner();
+    let lhs = iter.next().expect("guaranteed by grammar");
+    let rhs = iter.next().expect("guaranteed by grammar");
+    let rhs_span = Span {
+        span: rhs.as_span(),
+        path: path.clone(),
+    };
+    let body = check!(
+        Expression::parse_from_pair(rhs, config),
+        Expression::Tuple {
+            fields: vec![],
+            span: rhs_span
+        },
+        warnings,
+        errors
+    );
+
+    let inner = lhs.into_inner().next().expect("guaranteed by grammar");
+    assert_eq!(inner.as_rule(), Rule::subfield_path);
+
+    // treat parent as one expr, final name as the field to be accessed
+    // if there are multiple fields, this is a nested expression
+    // i.e. `a.b.c` is a lookup of field `c` on `a.b` which is a lookup
+    // of field `b` on `a`
+    // the first thing is either an exp or a var, everything subsequent must be
+    // a field
+    let mut name_parts = inner.into_inner();
+    let mut expr = check!(
+        parse_subfield_path_ensure_only_var(
+            name_parts.next().expect("guaranteed by grammar"),
+            config
+        ),
+        return err(warnings, errors),
+        warnings,
+        errors
+    );
+
+    for name_part in name_parts {
+        expr = Expression::SubfieldExpression {
+            prefix: Box::new(expr.clone()),
+            span: Span {
+                span: name_part.as_span(),
+                path: path.clone(),
+            },
+            field_to_access: check!(
+                ident::parse_from_pair(name_part, config),
+                continue,
+                warnings,
+                errors
+            ),
+        }
+    }
+
+    ok((expr, body), warnings, errors)
 }
