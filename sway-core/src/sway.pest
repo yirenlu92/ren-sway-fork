@@ -64,7 +64,8 @@ delineated_path          =  {path_component ~ fn_args?}
 path_component           =  {path_ident ~ (path_separator ~ path_ident)+}
 path_ident               =  {ident}
 array_index              =  {call_item ~ "[" ~ expr ~ "]" ~ ("[" ~ expr ~ "]")*}
-storage_access           =  {storage_keyword ~ "." ~ ident}
+storage_access           =  {storage_keyword ~ "." ~ ident ~ ("." ~ ident)*}
+
 
 // abi blocks and abi casting
 abi_cast = {abi_keyword ~ "(" ~ trait_name ~ "," ~ expr ~ ")"}
@@ -129,7 +130,7 @@ var_tuple                 =  {"(" ~ (var_lhs ~ ("," ~ var_lhs)* ~ ","?)? ~ ")" }
 reassignment              =  {variable_reassignment | storage_reassignment | struct_field_reassignment}
 variable_reassignment     =  {var_exp ~ assign ~ expr ~ ";"}
 struct_field_reassignment =  {struct_field_access ~ assign ~ expr ~ ";" }
-storage_reassignment      =  {"storage" ~ "." ~ reassignment }
+storage_reassignment      =  {"storage" ~ "." ~ ident ~ ("." ~ ident)* ~ assign ~ expr ~ ";"}
 const_decl                =  {visibility ~ const_decl_keyword ~ var_name ~ type_ascription? ~ assign ~ literal_value ~ ";"}
 
 visibility =  {"pub"?}

@@ -1132,7 +1132,23 @@ fn reassignment(
                 errors,
             )
         }
-        ReassignmentTarget::StorageField(field) => todo!("{:?}", field),
+        ReassignmentTarget::StorageField(Expression::SubfieldExpression {
+            prefix,
+            field_to_access,
+            span,
+        }) => reassign_storage_subfield(TypeCheckArguments {
+            checkee: (*prefix, field_to_access, span, rhs),
+            namespace,
+            crate_namespace,
+            return_type_annotation: insert_type(TypeInfo::Unknown),
+            help_text: Default::default(),
+            self_type,
+            build_config,
+            dead_code_graph,
+            dependency_graph,
+            mode: Mode::NonAbi,
+            opts,
+        }),
         _ => {
             errors.push(CompileError::InvalidExpressionOnLhs { span });
             err(warnings, errors)
@@ -1398,4 +1414,130 @@ fn error_recovery_function_declaration(decl: FunctionDeclaration) -> TypedFuncti
         return_type: crate::type_engine::insert_type(return_type),
         type_parameters: Default::default(),
     }
+}
+
+fn reassign_storage_subfield(
+    arguments: TypeCheckArguments<'_, (Expression, Ident, Span, Expression)>,
+) -> CompileResult<TypedDeclaration> {
+    let TypeCheckArguments {
+        checkee: (prefix, field_to_access, span, rhs),
+        namespace,
+        crate_namespace,
+        return_type_annotation,
+        help_text,
+        self_type,
+        build_config,
+        dead_code_graph,
+        dependency_graph,
+        opts,
+        ..
+    } = arguments;
+    let mut errors = vec![];
+    let mut warnings = vec![];
+    if !namespace.has_storage_declared() {
+        errors.push(todo!("Storage reassignment without declared storage"));
+        return err(warnings, errors);
+    }
+
+    dbg!(&prefix);
+    let mut expr = match prefix {
+        Expression::SubfieldExpression { prefix, .. } => prefix,
+        _ => todo!(),
+    };
+    let mut names_vec = vec![];
+    let final_return_type = loop {
+        let type_checked = check!(
+            TypedExpression::type_check(TypeCheckArguments {
+                checkee: (*expr).clone(),
+                namespace,
+                crate_namespace,
+                return_type_annotation: insert_type(TypeInfo::Unknown),
+                help_text: Default::default(),
+                self_type,
+                build_config,
+                dead_code_graph,
+                dependency_graph,
+                mode: Mode::NonAbi,
+                opts
+            }),
+            error_recovery_expr(expr.span()),
+            warnings,
+            errors
+        );
+
+        match *expr {
+            Expression::VariableExpression { name, .. } => {
+                names_vec.push(ReassignmentLhs {
+                    name,
+                    r#type: type_checked.return_type,
+                });
+                break type_checked.return_type;
+            }
+            Expression::SubfieldExpression {
+                field_to_access,
+                prefix,
+                ..
+            } => {
+                names_vec.push(ReassignmentLhs {
+                    name: field_to_access,
+                    r#type: type_checked.return_type,
+                });
+                expr = prefix;
+            }
+            _ => {
+                errors.push(CompileError::InvalidExpressionOnLhs { span });
+                return err(warnings, errors);
+            }
+        }
+    };
+
+    let mut names_vec = names_vec.into_iter().rev().collect::<Vec<_>>();
+    names_vec.push(ReassignmentLhs {
+        name: field_to_access,
+        r#type: final_return_type,
+    });
+
+    let (ty_of_field, _ty_of_parent) = check!(
+        namespace.find_subfield_type(
+            names_vec
+                .iter()
+                .map(|ReassignmentLhs { name, .. }| name.clone())
+                .collect::<Vec<_>>()
+                .as_slice()
+        ),
+        return err(warnings, errors),
+        warnings,
+        errors
+    );
+    // type check the reassignment
+    let rhs = check!(
+        TypedExpression::type_check(TypeCheckArguments {
+            checkee: rhs,
+            namespace,
+            crate_namespace,
+            return_type_annotation: ty_of_field,
+            help_text: Default::default(),
+            self_type,
+            build_config,
+            dead_code_graph,
+            dependency_graph,
+            mode: Mode::NonAbi,
+            opts,
+        }),
+        error_recovery_expr(span),
+        warnings,
+        errors
+    );
+
+    todo!()
+    /*
+    ok(
+        TypedDeclaration::StorageReassignment(TypedReassignment {
+            lhs: names_vec,
+            rhs,
+        }),
+        warnings,
+        errors,
+    )
+        */
 }

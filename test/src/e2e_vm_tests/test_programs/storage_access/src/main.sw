@@ -21,7 +21,7 @@ struct OwnerInner {
 
 
 impure fn returns_owner() -> b256 {
-    (storage.owner).data.value
+    storage.owner.data.value
 }
 
 impure fn set_number(x: u64) {

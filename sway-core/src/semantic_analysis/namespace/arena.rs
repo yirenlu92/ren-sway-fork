@@ -98,6 +98,7 @@ pub trait NamespaceWrapper {
     fn apply_storage_load(&self, field: Ident)
         -> CompileResult<(TypeCheckedStorageAccess, TypeId)>;
     fn set_storage_declaration(&self, decl: TypedStorageDeclaration) -> CompileResult<()>;
+    fn has_storage_declared(&self) -> bool;
 }
 
 impl NamespaceWrapper for NamespaceRef {
@@ -727,6 +728,9 @@ impl NamespaceWrapper for NamespaceRef {
             TypeInfo::Ref(id) => id,
             o => insert_type(o),
         }
+    }
+    fn has_storage_declared(&self) -> bool {
+        read_module(move |ns| ns.declared_storage.is_some(), *self)
     }
 }
 

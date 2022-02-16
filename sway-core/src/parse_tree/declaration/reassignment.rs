@@ -88,6 +88,8 @@ impl Reassignment {
                 // because we are reusing code from struct field reassignments
                 // this leads to some nested `Rule`s, so the actual storage
                 // reassignment requires some `expect()`s to extract.
+                dbg!(&variable_or_struct_reassignment);
+                todo!();
                 let mut iter = variable_or_struct_reassignment.into_inner();
                 let reassignment = iter.next().expect("guaranteed by grammar");
                 let mut iter = reassignment.into_inner();
