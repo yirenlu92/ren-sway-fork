@@ -52,6 +52,10 @@ impl TypedDeclaration {
             StructDeclaration(ref mut struct_decl) => struct_decl.copy_types(type_mapping),
             EnumDeclaration(ref mut enum_decl) => enum_decl.copy_types(type_mapping),
             Reassignment(ref mut reassignment) => reassignment.copy_types(type_mapping),
+            // theoretically storage cannot be monomorphized as we don't support generics.
+            // That being said, we might as well implement copy_types correctly here for interface
+            // compatibility, in case it is used with that expectation in the future.
+            StorageReassignment(ref mut reassignment) => reassignment.copy_types(type_mapping),
             ImplTrait {
                 ref mut methods, ..
             } => {
@@ -83,6 +87,7 @@ impl TypedDeclaration {
             GenericTypeForFunctionScope { .. } => "generic type parameter",
             ErrorRecovery => "error",
             StorageDeclaration(_) => "contract storage declaration",
+            StorageReassignment(_) => "contract storage reassignment",
         }
     }
     pub(crate) fn return_type(&self) -> CompileResult<TypeId> {
@@ -149,6 +154,7 @@ impl TypedDeclaration {
             AbiDeclaration(TypedAbiDeclaration { span, .. }) => span.clone(),
             ImplTrait { span, .. } => span.clone(),
             StorageDeclaration(decl) => decl.span(),
+            StorageReassignment(reassignment) => reassignment.span(),
             ErrorRecovery | GenericTypeForFunctionScope { .. } => {
                 unreachable!("No span exists for these ast node types")
             }
@@ -199,6 +205,7 @@ impl TypedDeclaration {
         match self {
             GenericTypeForFunctionScope { .. }
             | Reassignment(..)
+            | StorageReassignment(..)
             | ImplTrait { .. }
             | StorageDeclaration { .. }
             | AbiDeclaration(..)

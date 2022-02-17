@@ -1417,6 +1417,25 @@ fn error_recovery_function_declaration(decl: FunctionDeclaration) -> TypedFuncti
 #[derive(Clone, Debug)]
 pub struct TypeCheckedStorageReassignment {
     fields: Vec<TypeCheckedStorageReassignDescriptor>,
+    rhs: TypedExpression,
+}
+
+impl TypeCheckedStorageReassignment {
+    pub fn rhs(&self) -> &TypedExpression {
+        &self.rhs
+    }
+    pub fn span(&self) -> Span {
+        self.fields
+            .iter()
+            .fold(self.fields[0].span.clone(), |acc, field| {
+                join_spans(acc, field.span.clone())
+            })
+    }
+    pub(crate) fn copy_types(&mut self, type_mapping: &[(TypeParameter, usize)]) {
+        self.fields
+            .iter_mut()
+            .for_each(|x| x.copy_types(type_mapping));
+    }
 }
 
 /// Describes a single subfield access in the sequence when reassigning to a subfield within
@@ -1427,6 +1446,18 @@ pub struct TypeCheckedStorageReassignDescriptor {
     r#type: TypeId,
     /// The span of the field in the LHS of this reassignment.
     span: Span,
+}
+
+impl TypeCheckedStorageReassignDescriptor {
+    pub(crate) fn copy_types(&mut self, type_mapping: &[(TypeParameter, usize)]) {
+        self.r#type = if let Some(matching_id) =
+            look_up_type_id(self.r#type).matches_type_parameter(type_mapping)
+        {
+            insert_type(TypeInfo::Ref(matching_id))
+        } else {
+            insert_type(look_up_type_id_raw(self.r#type))
+        };
+    }
 }
 
 fn reassign_storage_subfield(
@@ -1479,6 +1510,7 @@ fn reassign_storage_subfield(
             _ => vec![],
         }
     }
+    let mut curr_type = *initial_field_type;
 
     // if the previously iterated type was a struct, put its fields here so we know that,
     // in the case of a subfield, we can type check the that the subfield exists and its type.
@@ -1492,6 +1524,7 @@ fn reassign_storage_subfield(
             .find(|x| &x.name == field.as_str())
         {
             Some(ref struct_field) => {
+                curr_type = struct_field.r#type;
                 type_checked_buf.push(TypeCheckedStorageReassignDescriptor {
                     name: field.as_str().to_string(),
                     r#type: struct_field.r#type,
@@ -1506,10 +1539,29 @@ fn reassign_storage_subfield(
             ),
         }
     }
+    let rhs = check!(
+        TypedExpression::type_check(TypeCheckArguments {
+            checkee: rhs,
+            namespace,
+            crate_namespace,
+            return_type_annotation: curr_type,
+            help_text: Default::default(),
+            self_type,
+            build_config,
+            dead_code_graph,
+            dependency_graph,
+            mode: Mode::NonAbi,
+            opts,
+        }),
+        error_recovery_expr(span),
+        warnings,
+        errors
+    );
 
     ok(
         TypeCheckedStorageReassignment {
             fields: type_checked_buf,
+            rhs,
         },
         warnings,
         errors,

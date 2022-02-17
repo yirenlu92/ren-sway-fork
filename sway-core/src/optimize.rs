@@ -177,6 +177,7 @@ fn compile_declarations(
             | TypedDeclaration::EnumDeclaration(_)
             | TypedDeclaration::VariableDeclaration(_)
             | TypedDeclaration::Reassignment(_)
+            | TypedDeclaration::StorageReassignment(_)
             | TypedDeclaration::AbiDeclaration(_)
             | TypedDeclaration::GenericTypeForFunctionScope { .. }
             | TypedDeclaration::StorageDeclaration(_)
@@ -459,6 +460,9 @@ impl FnCompiler {
                         }
                         TypedDeclaration::Reassignment(tr) => {
                             self.compile_reassignment(context, tr)
+                        }
+                        TypedDeclaration::StorageReassignment(_) => {
+                            Err("Storage reassignment".into())
                         }
                         TypedDeclaration::ImplTrait { .. } => {
                             // XXX What if I ignore the trait implementation???  Potentially since
