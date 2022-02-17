@@ -6,7 +6,10 @@ use crate::{
     parser::Rule,
 };
 
-use sway_types::{span::Span, Ident};
+use sway_types::{
+    span::{join_spans, Span},
+    Ident,
+};
 
 use pest::iterators::Pair;
 
@@ -16,7 +19,7 @@ use pest::iterators::Pair;
 #[derive(Debug, Clone)]
 pub enum ReassignmentTarget {
     VariableExpression(Expression),
-    StorageField(Expression),
+    StorageField(Vec<Ident>),
 }
 
 #[derive(Debug, Clone)]
@@ -29,6 +32,27 @@ pub struct Reassignment {
 }
 
 impl Reassignment {
+    pub fn lhs_span(&self) -> Span {
+        match self.lhs {
+            ReassignmentTarget::VariableExpression(Expression::SubfieldExpression {
+                ref span,
+                ..
+            }) => span.clone(),
+            ReassignmentTarget::VariableExpression(Expression::VariableExpression {
+                ref name,
+                ..
+            }) => name.span().clone(),
+            ReassignmentTarget::StorageField(ref idents) => {
+                idents.iter().fold(idents[0].span().clone(), |acc, ident| {
+                    join_spans(acc, ident.span().clone())
+                })
+            }
+
+            _ => {
+                unreachable!("any other reassignment lhs is invalid and cannot be constructed.")
+            }
+        }
+    }
     pub(crate) fn parse_from_pair(
         pair: Pair<Rule>,
         config: Option<&BuildConfig>,
@@ -88,61 +112,41 @@ impl Reassignment {
                 // because we are reusing code from struct field reassignments
                 // this leads to some nested `Rule`s, so the actual storage
                 // reassignment requires some `expect()`s to extract.
-                dbg!(&variable_or_struct_reassignment);
-                todo!();
-                let mut iter = variable_or_struct_reassignment.into_inner();
-                let reassignment = iter.next().expect("guaranteed by grammar");
-                let mut iter = reassignment.into_inner();
-
-                let pair = iter.next().expect("guaranteed by grammar");
-
-                match pair.as_rule() {
-                    Rule::variable_reassignment => {
-                        // then this is a single field reassignment with no inner struct fields
-                        dbg!(&pair);
-                        let (storage_field_to_access, value_to_assign) = check!(
-                            dbg!(parse_simple_variable_reassignment(pair, config, path)),
-                            return err(warnings, errors),
-                            warnings,
-                            errors
-                        );
-                        ok(
-                            Reassignment {
-                                lhs: ReassignmentTarget::StorageField(storage_field_to_access),
-                                rhs: value_to_assign,
-                                span,
-                            },
-                            warnings,
-                            errors,
-                        )
-                    }
-                    Rule::struct_field_reassignment => {
-                        // then this is a reassignment to an inner field of a struct within storage
-                        let (subfield_storage_path, body) = check!(
-                            parse_subfield_reassignment(pair, config, path),
-                            return err(warnings, errors),
-                            warnings,
-                            errors
-                        );
-
-                        ok(
-                            Reassignment {
-                                lhs: ReassignmentTarget::StorageField(subfield_storage_path),
-                                rhs: body,
-                                span,
-                            },
-                            warnings,
-                            errors,
-                        )
-                    }
-                    Rule::storage_reassignment => {
-                        errors.push(todo!(
-                            "Nested storage reassignment is invalid; parsing error"
-                        ));
-                        return err(warnings, errors);
-                    }
-                    a => unreachable!("guaranteed by grammar: {:?}", a),
+                let mut parts_of_reassignment = variable_or_struct_reassignment
+                    .into_inner()
+                    .collect::<Vec<_>>();
+                let rhs = parts_of_reassignment.pop();
+                assert_eq!(rhs.as_ref().map(|x| x.as_rule()), Some(Rule::expr));
+                let rhs = rhs.expect("guaranteed by grammar");
+                let rhs = check!(
+                    Expression::parse_from_pair(
+                        rhs
+                            // sad clone, probably unnecessary
+                            .clone(),
+                        config
+                    ),
+                    return err(warnings, errors),
+                    warnings,
+                    errors
+                );
+                let mut lhs = Vec::new();
+                for item in parts_of_reassignment {
+                    lhs.push(check!(
+                        ident::parse_from_pair(item, config),
+                        continue,
+                        warnings,
+                        errors
+                    ))
                 }
+                ok(
+                    Reassignment {
+                        lhs: ReassignmentTarget::StorageField(lhs),
+                        rhs,
+                        span,
+                    },
+                    warnings,
+                    errors,
+                )
             }
             _ => unreachable!("guaranteed by grammar"),
         }

@@ -24,13 +24,14 @@ impure fn returns_owner() -> b256 {
     storage.owner.data.value
 }
 
+impure fn set_owner(val: b256) {
+    storage.owner.data.value = val;
+}
+
 impure fn set_number(x: u64) {
   storage.number = x;
 }
 
-impure fn set_owner(val: b256) {
-    storage.owner.data.value = val;
-}
 
 
 abi TestAbi {

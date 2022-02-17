@@ -1,5 +1,8 @@
 use super::{impl_trait::Mode, TypedCodeBlock, TypedExpression};
-use crate::{error::*, parse_tree::*, type_engine::*, Ident};
+use crate::{
+    error::*, parse_tree::*, semantic_analysis::TypeCheckedStorageReassignment, type_engine::*,
+    Ident,
+};
 
 use sway_types::{join_spans, span::Span, Property};
 
@@ -33,6 +36,7 @@ pub enum TypedDeclaration {
     },
     StorageDeclaration(TypedStorageDeclaration),
     ErrorRecovery,
+    StorageReassignment(TypeCheckedStorageReassignment),
 }
 
 impl TypedDeclaration {

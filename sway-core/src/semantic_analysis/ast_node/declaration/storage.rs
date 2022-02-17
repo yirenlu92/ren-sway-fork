@@ -83,8 +83,9 @@ impl TypedStorageDeclaration {
 #[derive(Clone, Debug)]
 pub struct TypedStorageField {
     pub(crate) name: Ident,
-    r#type: TypeId,
-    initializer: TypedExpression,
+    pub(crate) r#type: TypeId,
+    // TODO send initializers in the TX
+    pub(crate) initializer: TypedExpression,
 }
 
 impl TypedStorageField {
