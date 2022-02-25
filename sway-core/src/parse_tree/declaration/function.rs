@@ -65,6 +65,9 @@ impl FunctionDeclaration {
             warnings,
             errors
         );
+        if is_invalid(name.as_str()) {
+            todo!("invalid function name")
+        }
         assert_or_warn!(
             is_snake_case(name.as_str()),
             warnings,
@@ -257,4 +260,8 @@ impl FunctionParameter {
         }
         ok(pairs_buf, warnings, errors)
     }
+}
+/// Check if a function name is invalid, i.e. uses a reserved name.
+fn is_invalid_name(raw: &str) -> bool {
+    ["size_of", "abi"].contains(raw)
 }
