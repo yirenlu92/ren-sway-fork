@@ -85,6 +85,7 @@ pub fn run(filter_regex: Option<regex::Regex>) {
         ("funcs_with_generic_types", ProgramState::Return(1)), // true
         ("supertraits", ProgramState::Return(1)),
         ("new_allocator_test", ProgramState::Return(42)), // true
+        ("generics_bug_demo", ProgramState::Return(1)),   // true
     ];
 
     let mut number_of_tests_run = positive_project_names.iter().fold(0, |acc, (name, res)| {
