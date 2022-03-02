@@ -122,7 +122,6 @@ pub(crate) fn init_new_project(project_name: String) -> Result<(), Box<dyn std::
     Ok(())
 }
 
-
 pub(crate) fn init_from_git_template(project_name: String, example_url: &Url) -> Result<()> {
     let git = parse_github_link(example_url)?;
 
