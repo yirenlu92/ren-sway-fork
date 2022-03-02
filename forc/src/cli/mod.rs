@@ -12,7 +12,7 @@ pub use clean::Command as CleanCommand;
 pub use deploy::Command as DeployCommand;
 pub use explorer::Command as ExplorerCommand;
 pub use format::Command as FormatCommand;
-use init::Command as InitCommand;
+pub use init::Command as InitCommand;
 pub use json_abi::Command as JsonAbiCommand;
 use lsp::Command as LspCommand;
 use parse_bytecode::Command as ParseBytecodeCommand;
