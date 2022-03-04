@@ -12,7 +12,7 @@ fn main() -> bool {
 
     // test Context::contract_id():
     let returned_contract_id = test_contract.get_id(gas, 0, ETH_ID, ());
-    assert(returned_contract_id == deployed_contract_id);
+    assert(returned_contract_id.into() == deployed_contract_id);
 
     // @todo set up a test contract to mint some tokens for testing balances.
     // test Context::this_balance():
@@ -33,7 +33,7 @@ fn main() -> bool {
 
     // test Context::msg_asset_id():
     let returned_asset_id = test_contract.get_asset_id(gas, amount, ETH_ID, ());
-    assert(returned_asset_id == ETH_ID);
+    assert(returned_asset_id.into() == ETH_ID);
 
     // test Context::msg_gas():
     // @todo expect the correct gas here... this should fail using `1000`
