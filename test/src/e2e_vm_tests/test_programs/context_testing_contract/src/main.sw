@@ -1,11 +1,11 @@
 contract;
 
+use std::contract_id::ContractId;
 use std::context::*;
 use context_testing_abi::*;
 
 impl ContextTesting for Contract {
-
-    fn get_id(gas: u64, coins: u64, asset_id: b256, input: ()) -> b256 {
+    fn get_id(gas: u64, coins: u64, asset_id: b256, input: ()) -> ContractId<b256> {
         contract_id()
     }
 
@@ -21,7 +21,7 @@ impl ContextTesting for Contract {
         msg_amount()
     }
 
-    fn get_asset_id(gas: u64, coins: u64, asset_id: b256, input: ()) -> b256 {
+    fn get_asset_id(gas: u64, coins: u64, asset_id: b256, input: ()) -> ContractId<b256> {
         msg_asset_id()
     }
 
