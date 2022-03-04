@@ -10,7 +10,6 @@
 use std::iter::FromIterator;
 
 use crate::{
-    asm::{AsmArg, AsmBlock},
     block::{Block, BlockContent},
     context::Context,
     error::IrError,
@@ -33,26 +32,36 @@ impl Context {
 
     fn verify_module(&self, module: &ModuleContent) -> Result<(), IrError> {
         for function in &module.functions {
-            self.verify_function(&self.functions[function.0])?;
+            self.verify_function(module, &self.functions[function.0])?;
         }
         Ok(())
     }
 
-    fn verify_function(&self, function: &FunctionContent) -> Result<(), IrError> {
+    fn verify_function(
+        &self,
+        cur_module: &ModuleContent,
+        function: &FunctionContent,
+    ) -> Result<(), IrError> {
         for block in &function.blocks {
-            self.verify_block(function, &self.blocks[block.0])?;
+            self.verify_block(cur_module, function, &self.blocks[block.0])?;
         }
         Ok(())
     }
 
     fn verify_block(
         &self,
-        function: &FunctionContent,
+        cur_module: &ModuleContent,
+        cur_function: &FunctionContent,
         block: &BlockContent,
     ) -> Result<(), IrError> {
-        for ins in &block.instructions {
-            self.verify_instruction(function, &self.values[ins.0].value)?;
+        InstructionVerifier {
+            context: self,
+            cur_module,
+            cur_function,
+            cur_block: block,
         }
+        .verify_instructions()?;
+
         let (last_is_term, num_terms) =
             block.instructions.iter().fold((false, 0), |(_, n), ins| {
                 if ins.is_terminator(self) {
@@ -69,70 +78,115 @@ impl Context {
             Ok(())
         }
     }
+}
 
-    fn verify_instruction(
-        &self,
-        function: &FunctionContent,
-        instruction: &ValueDatum,
-    ) -> Result<(), IrError> {
-        if let ValueDatum::Instruction(instruction) = instruction {
-            match instruction {
-                Instruction::AsmBlock(asm, args) => self.verify_asm_block(asm, args)?,
-                Instruction::Branch(block) => self.verify_br(block)?,
-                Instruction::Call(func, args) => self.verify_call(func, args)?,
-                Instruction::ConditionalBranch {
-                    cond_value,
-                    true_block,
-                    false_block,
-                } => self.verify_cbr(cond_value, true_block, false_block)?,
-                Instruction::ExtractElement {
-                    array,
-                    ty,
-                    index_val,
-                } => self.verify_extract_element(array, ty, index_val)?,
-                Instruction::ExtractValue {
-                    aggregate,
-                    ty,
-                    indices,
-                } => self.verify_extract_value(aggregate, ty, indices)?,
-                Instruction::GetPointer(ptr) => self.verify_get_ptr(ptr)?,
-                Instruction::InsertElement {
-                    array,
-                    ty,
-                    value,
-                    index_val,
-                } => self.verify_insert_element(array, ty, value, index_val)?,
-                Instruction::InsertValue {
-                    aggregate,
-                    ty,
-                    value,
-                    indices,
-                } => self.verify_insert_values(aggregate, ty, value, indices)?,
-                Instruction::Load(ptr) => self.verify_load(ptr)?,
-                Instruction::Nop => (),
-                Instruction::Phi(pairs) => self.verify_phi(&pairs[..])?,
-                Instruction::Ret(val, ty) => self.verify_ret(function, val, ty)?,
-                Instruction::Store { ptr, stored_val } => self.verify_store(ptr, stored_val)?,
+struct InstructionVerifier<'a> {
+    context: &'a Context,
+    cur_module: &'a ModuleContent,
+    cur_function: &'a FunctionContent,
+    cur_block: &'a BlockContent,
+}
+
+impl<'a> InstructionVerifier<'a> {
+    fn verify_instructions(&self) -> Result<(), IrError> {
+        for ins in &self.cur_block.instructions {
+            let instruction = &self.context.values[ins.0].value;
+            if let ValueDatum::Instruction(instruction) = instruction {
+                match instruction {
+                    Instruction::AsmBlock(..) => (),
+                    Instruction::Branch(block) => self.verify_br(block)?,
+                    Instruction::Call(func, args) => self.verify_call(func, args)?,
+                    Instruction::ConditionalBranch {
+                        cond_value,
+                        true_block,
+                        false_block,
+                    } => self.verify_cbr(cond_value, true_block, false_block)?,
+                    Instruction::ExtractElement {
+                        array,
+                        ty,
+                        index_val,
+                    } => self.verify_extract_element(array, ty, index_val)?,
+                    Instruction::ExtractValue {
+                        aggregate,
+                        ty,
+                        indices,
+                    } => self.verify_extract_value(aggregate, ty, indices)?,
+                    Instruction::GetPointer(ptr) => self.verify_get_ptr(ptr)?,
+                    Instruction::InsertElement {
+                        array,
+                        ty,
+                        value,
+                        index_val,
+                    } => self.verify_insert_element(array, ty, value, index_val)?,
+                    Instruction::InsertValue {
+                        aggregate,
+                        ty,
+                        value,
+                        indices,
+                    } => self.verify_insert_values(aggregate, ty, value, indices)?,
+                    Instruction::Load(ptr) => self.verify_load(ptr)?,
+                    Instruction::Nop => (),
+                    Instruction::Phi(pairs) => self.verify_phi(&pairs[..])?,
+                    Instruction::Ret(val, ty) => self.verify_ret(self.cur_function, val, ty)?,
+                    Instruction::Store { ptr, stored_val } => self.verify_store(ptr, stored_val)?,
+                }
+            } else {
+                unreachable!("Verify instruction is not an instruction.");
             }
-        } else {
-            unreachable!("Verify instruction is not an instruction.");
         }
         Ok(())
     }
 
-    fn verify_asm_block(&self, _asm: &AsmBlock, _args: &[AsmArg]) -> Result<(), IrError> {
-        Ok(())
+    fn verify_br(&self, dest_block: &Block) -> Result<(), IrError> {
+        if !self.cur_function.blocks.contains(dest_block) {
+            Err(IrError::VerifyBranchToMissingBlock(
+                self.context.blocks[dest_block.0].label.clone(),
+            ))
+        } else {
+            Ok(())
+        }
     }
 
-    fn verify_br(&self, _block: &Block) -> Result<(), IrError> {
-        Ok(())
-    }
-
-    fn verify_call(&self, _callee: &Function, _args: &[Value]) -> Result<(), IrError> {
+    fn verify_call(&self, callee: &Function, args: &[Value]) -> Result<(), IrError> {
         // XXX We should confirm the function arg types are all correct and the return type matches
         // the call value type... but all they type info isn't stored at this stage, and it
         // should've all been checked in the typed AST.
-        Ok(())
+        let callee_content = &self.context.functions[callee.0];
+        if !self.cur_module.functions.contains(callee) {
+            Err(IrError::VerifyCallToMissingFunction(
+                callee_content.name.clone(),
+            ))
+        } else {
+            let callee_arg_types = callee_content
+                .arguments
+                .iter()
+                .map(|(_, arg_val)| {
+                    if let ValueDatum::Argument(ty) = &self.context.values[arg_val.0].value {
+                        Ok(*ty)
+                    } else {
+                        Err(IrError::VerifyArgumentValueIsNotArgument(
+                            callee_content.name.clone(),
+                        ))
+                    }
+                })
+                .collect::<Result<Vec<Type>, IrError>>()?;
+
+            for (opt_caller_arg_type, callee_arg_type) in args
+                .iter()
+                .map(|val| val.get_type(self.context))
+                .zip(callee_arg_types.iter())
+            {
+                if opt_caller_arg_type.is_none() {
+                    return Err(IrError::VerifyUntypedValuePassedToFunction);
+                }
+                if opt_caller_arg_type.as_ref().unwrap() != callee_arg_type {
+                    return Err(IrError::VerifyCallArgTypeMismatch(
+                        callee_content.name.clone(),
+                    ));
+                }
+            }
+            Ok(())
+        }
     }
 
     fn verify_cbr(
@@ -202,7 +256,9 @@ impl Context {
 
     fn verify_phi(&self, pairs: &[(Block, Value)]) -> Result<(), IrError> {
         let label_set = std::collections::HashSet::<&String>::from_iter(
-            pairs.iter().map(|(block, _)| &(self.blocks[block.0].label)),
+            pairs
+                .iter()
+                .map(|(block, _)| &(self.context.blocks[block.0].label)),
         );
         if label_set.len() != pairs.len() {
             Err(IrError::NonUniquePhiLabels)

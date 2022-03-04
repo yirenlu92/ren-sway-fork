@@ -1,3 +1,8 @@
+/// These errors are for internal IR failures, not designed to be useful to a Sway developer, but
+/// more for users of the `sway-ir` crate, i.e., compiler developers.
+///
+/// XXX They're not very rich and could do with a little more verbosity.
+
 #[derive(Debug)]
 pub enum IrError {
     FunctionLocalClobbered(String, String),
@@ -9,6 +14,12 @@ pub enum IrError {
     NonUniquePhiLabels,
     ParseFailure(String, String),
     ValueNotFound(String),
+
+    VerifyBranchToMissingBlock(String),
+    VerifyCallToMissingFunction(String),
+    VerifyArgumentValueIsNotArgument(String),
+    VerifyUntypedValuePassedToFunction,
+    VerifyCallArgTypeMismatch(String),
 }
 
 use std::fmt;
@@ -38,6 +49,27 @@ impl fmt::Display for IrError {
             }
             IrError::ValueNotFound(reason) => {
                 write!(f, "Invalid value: {reason}")
+            }
+
+            IrError::VerifyBranchToMissingBlock(label) => {
+                write!(
+                    f,
+                    "Branch to block '{label}' is not a block in the current function."
+                )
+            }
+            IrError::VerifyCallToMissingFunction(callee) => {
+                write!(f, "Call to invalid function '{callee}'.")
+            }
+            IrError::VerifyArgumentValueIsNotArgument(callee) => write!(
+                f,
+                "Argument specifier for function '{callee}' is not an argument value."
+            ),
+            IrError::VerifyUntypedValuePassedToFunction => write!(
+                f,
+                "An untyped/void value has been passed to a function call."
+            ),
+            IrError::VerifyCallArgTypeMismatch(callee) => {
+                write!(f, "Type mismatch found for call to '{callee}'.")
             }
         }
     }
